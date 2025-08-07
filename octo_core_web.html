@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OctoCore — Веб версия</title>
+  <!--
+    OctoCore — Веб-версия
+
+    Описание:
+    Многофункциональное мультикамерное SPA-приложение для сбора, хранения, анализа,
+    визуализации и обмена аудио/видео/изображений. Поддерживает подключение веб-камер,
+    запись аудио, загрузку файлов, базовую интеграцию с IPFS/Helia, модульную ИИ-архитектуру
+    (загрузчики моделей оставлены как расширяемые точки) и встроенную простую IDE
+    (JS + опционально Pyodide для Python).
+
+    Как использовать:
+    1) Загрузите этот файл на GitHub Pages или любую статическую хостинг-площадку.
+    2) Откройте в браузере. Для доступа к камерам требуется HTTPS (GitHub Pages хорошо подходит).
+    3) При желании настройте адрес HELIA_GATEWAY и адреса внешних API в блоке CONFIG.
+
+    Замечание по пакетам:
+    - В коде используются только API браузера и публичные CDN для известных библиотек.
+    - Для ffmpeg и тяжелых моделей рекомендуется подключать официальные сборки через CDN
+      (например, @ffmpeg/ffmpeg для веб-версии) или разворачивать сервис на сервере.
+
+    Файлы:
+    - Этот один файл содержит HTML, CSS и JS для быстрой деплоя.
+    - Для продакшена рекомендуется разделить код на модули, собрать через Vite/Rollup и
+      добавить серверную часть для приватных API-ключей.
+  -->
+
+  <style>
+    /* Простой адаптивный стиль — аккуратный, нейтральный */
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#06b6d4; --muted:#9ca3af; --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#071023 0%, #071a2a 100%);color:#e6eef6}
+    header{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1rem;max-width:1200px;margin:0 auto}
+    h1{font-size:1.1rem;margin:0}
+
+    main{max-width:1200px;margin:1rem auto;padding:1rem}
+    .layout{display:grid;grid-template-columns:360px 1fr;gap:1rem}
+
+    /* Боковая панель */
+    .panel{background:var(--card);padding:1rem;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,.6)}
+    .controls .row{display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem}
+    button.btn{background:var(--accent);border:none;padding:.5rem .8rem;border-radius:8px;color:#042028;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    input[type=file]{display:block}
+
+    /* Область камер и галлереи */
+    .workspace{display:flex;flex-direction:column;gap:1rem}
+    .cameras{display:flex;flex-wrap:wrap;gap:.5rem}
+    .camera-card{background:var(--glass);border:1px solid rgba(255,255,255,0.03);padding:.5rem;border-radius:8px;width:calc(50% - .5rem)}
+    video{width:100%;height:auto;border-radius:6px;background:black}
+
+    /* Галерея и таймлайны */
+    #gallery{display:flex;flex-direction:column;gap:.6rem}
+    .gallery-row{display:flex;gap:.6rem;overflow:auto;padding:.4rem}
+    .media-card{min-width:200px;background:#071827;padding:.4rem;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
+
+    footer{max-width:1200px;margin:1rem auto;text-align:center;color:var(--muted);font-size:.85rem}
+
+    @media(max-width:900px){.layout{grid-template-columns:1fr}.camera-card{width:100%}}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>OctoCore — Веб (Demo)</h1>
+      <div style="font-size:.82rem;color:var(--muted)">Мультикамерный сбор · AI-модули · IPFS хранение · Таймлапсы</div>
+    </div>
+    <div>
+      <!-- Быстрые действия -->
+      <button id="connectBtn" class="btn">Подключить камеру</button>
+      <button id="pyBtn" class="btn ghost" title="Загрузить Pyodide для Python IDE">Python IDE</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="layout">
+      <!-- Панель управления -->
+      <aside class="panel controls">
+        <h3>Управление</h3>
+        <div class="row">
+          <button id="addCamBtn" class="btn">Добавить веб-камеру</button>
+          <button id="addIpBtn" class="btn ghost">Подключить IP-камеру</button>
+        </div>
+
+        <h4 style="margin-top:8px">Загрузка / Хранение</h4>
+        <div style="font-size:.9rem;color:var(--muted);margin-bottom:.4rem">Загрузить файл и сохранить в IPFS / Helia</div>
+        <input id="fileInput" type="file" accept="image/*,video/*,audio/*" />
+        <div class="row">
+          <button id="uploadBtn" class="btn">Загрузить в IPFS</button>
+          <button id="saveFilecoin" class="btn ghost">Закупорить в Filecoin</button>
+        </div>
+
+        <h4 style="margin-top:8px">AI / Анализ</h4>
+        <div style="font-size:.9rem;color:var(--muted);margin-bottom:.4rem">Выберите модель: (пример)</div>
+        <select id="aiSelect" style="width:100%;padding:.4rem;border-radius:6px;margin-bottom:.6rem">
+          <option value="tf">TensorFlow.js (browser)</option>
+          <option value="onnx">ONNX.js (wasm)</option>
+          <option value="hf">HuggingFace (API)</option>
+          <option value="openai">OpenAI (API)</option>
+        </select>
+        <div class="row">
+          <button id="analyzeBtn" class="btn">Анализ</button>
+          <button id="timelapseBtn" class="btn ghost">Создать таймлапс</button>
+        </div>
+
+        <h4 style="margin-top:8px">IDE</h4>
+        <div style="font-size:.9rem;color:var(--muted);margin-bottom:.4rem">Встроенная среда для JS/Python (Pyodide)</div>
+        <div class="row">
+          <button id="openIDE" class="btn">Открыть IDE</button>
+          <button id="runSnippet" class="btn ghost">Запустить пример JS</button>
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:8px 0" />
+        <div style="font-size:.82rem;color:var(--muted)">Конфигурация Helia / IPFS</div>
+        <input id="heliaGateway" placeholder="https://api.helia.io" style="width:100%;padding:.4rem;border-radius:6px;margin-top:.4rem" />
+
+      </aside>
+
+      <!-- Рабочая область -->
+      <section class="workspace">
+        <div class="panel">
+          <h3>Камеры</h3>
+          <div id="cameraContainer" class="cameras"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Галерея / Таймлайны</h3>
+          <div id="gallery"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Логи / Статус</h3>
+          <pre id="log" style="max-height:160px;overflow:auto;color:var(--muted)"></pre>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>OctoCore — демоверсия · Разверните на GitHub Pages для HTTPS доступа к камерам</footer>
+
+  <script>
+  /***************************************************************************
+   * OctoCore Web — single-file implementation
+   * Весь код подробно прокомментирован на русском языке.
+   ***************************************************************************/
+
+  // ============================
+  // Конфигурация
+  // ============================
+  const CONFIG = {
+    HELIA_GATEWAY: 'https://api.helia.io', // адрес публичного Helia/IPFS API
+    FILECOIN_SERVICE: '', // при интеграции Filecoin сюда можно поместить endpoint
+    USE_FFMPEG_WASM: false, // включите true если подключили ffmpeg.wasm сборку
+  };
+
+  // ============================
+  // Утилиты: логирование и простые DOM-хелперы
+  // ============================
+  const $ = (id) => document.getElementById(id);
+  const log = (msg) => { const p = $('log'); p.textContent += msg + "\n"; p.scrollTop = p.scrollHeight; };
+
+  // ============================
+  // Простое "ядро" приложения — хранит состояния
+  // ============================
+  const Core = {
+    cameras: [], // массив {deviceId, stream, videoEl}
+    gallery: [], // массив медиа-объектов {type, src, cid, meta}
+    aiProviders: {},
+    pyodide: null,
+  };
+
+  // ============================
+  // Камеры: получение списка устройств и старт потока
+  // ============================
+  async function listDevices(){
+    // Перечислить устройства медиа (в браузере)
+    try{
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d=>d.kind==='videoinput');
+      log('Найдено камер: ' + cams.length);
+      return cams;
+    }catch(e){ log('Ошибка перечисления устройств: '+e.message); return []; }
+  }
+
+  async function addWebCamera(){
+    // Запрашиваем доступ к первой доступной камере
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+      const video = document.createElement('video');
+      video.autoplay = true; video.muted = true; video.playsInline = true; video.srcObject = stream;
+      const wrap = document.createElement('div'); wrap.className='camera-card'; wrap.appendChild(video);
+      $('cameraContainer').appendChild(wrap);
+
+      Core.cameras.push({deviceId: null, stream, videoEl:video});
+      log('Веб-камера добавлена');
+
+      // Добавление кнопки записи отдельного потока
+      const recBtn = document.createElement('button'); recBtn.textContent='Записать 5c'; recBtn.className='btn ghost';
+      recBtn.onclick = ()=>recordStreamSample(stream,5).then(blob=>{ addToGalleryFromBlob(blob,'video'); });
+      wrap.appendChild(recBtn);
+
+    }catch(e){ log('Ошибка доступа к камере: '+e.message); }
+  }
+
+  // ============================
+  // Склеивание IP-камер (через URL) — базовая поддержка
+  // Подробнее: для IP-камер с MJPEG/RTSP нужен сервер-сайд конвертер (ffmpeg) или ffmpeg.wasm
+  // ============================
+  function addIPCamerabyURL(url){
+    // Простейшая версия: пробуем вставить <img> для MJPEG или <video> для прямого https:// stream
+    const wrap = document.createElement('div'); wrap.className='camera-card';
+    // Попытка 1: вставить <img> как MJPEG поток
+    const img = document.createElement('img'); img.src = url; img.style.width='100%';
+    img.onerror = ()=>{ log('IP-камера: не удалось загрузить как img; попробуйте интегрировать через ffmpeg/конвертер'); };
+    wrap.appendChild(img);
+    $('cameraContainer').appendChild(wrap);
+    log('Добавлена IP-камера (как изображение)');
+  }
+
+  // ============================
+  // Запись фрагмента потока в blob (MediaRecorder) — для таймлапсов/анализов
+  // ============================
+  async function recordStreamSample(stream, seconds=5){
+    return new Promise((resolve,reject)=>{
+      try{
+        const mr = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp8'});
+        const chunks=[];
+        mr.ondataavailable = e=>chunks.push(e.data);
+        mr.onstop = ()=>{
+          const blob = new Blob(chunks,{type:'video/webm'});
+          log('Запись завершена, размер: '+Math.round(blob.size/1024)+'KB');
+          resolve(blob);
+        };
+        mr.start();
+        setTimeout(()=>mr.stop(), seconds*1000);
+      }catch(e){reject(e);}    
+    });
+  }
+
+  // ============================
+  // Галерея: добавление из blob или URL
+  // ============================
+  function addToGalleryFromBlob(blob, type){
+    const url = URL.createObjectURL(blob);
+    const item = {type, src:url, blob, cid:null, meta:{size:blob.size}};
+    Core.gallery.push(item);
+    renderGalleryRow();
+    log('Медиа добавлено в галерею');
+  }
+
+  function addToGalleryFromURL(url,type='image'){
+    const item = {type, src:url, blob:null, cid:null, meta:{}};
+    Core.gallery.push(item);
+    renderGalleryRow();
+  }
+
+  function renderGalleryRow(){
+    const g = $('gallery'); g.innerHTML='';
+    const row = document.createElement('div'); row.className='gallery-row';
+    Core.gallery.forEach((it,idx)=>{
+      const card = document.createElement('div'); card.className='media-card';
+      if(it.type==='video'){
+        const v = document.createElement('video'); v.src = it.src; v.controls=true; v.style.width='100%'; card.appendChild(v);
+      }else if(it.type==='audio'){
+        const a = document.createElement('audio'); a.src=it.src; a.controls=true; card.appendChild(a);
+      }else{
+        const im = document.createElement('img'); im.src=it.src; im.style.width='100%'; card.appendChild(im);
+      }
+      const uploadCID = document.createElement('div'); uploadCID.style.fontSize='.8rem'; uploadCID.style.color='var(--muted)';
+      uploadCID.textContent = it.cid ? ('CID: '+it.cid) : 'Не загружено';
+      card.appendChild(uploadCID);
+
+      // Кнопка загрузки в IPFS
+      const upBtn = document.createElement('button'); upBtn.textContent='IPFS'; upBtn.className='btn'; upBtn.style.marginTop='6px';
+      upBtn.onclick = async ()=>{
+        if(it.blob){
+          const cid = await uploadToIPFS(it.blob);
+          it.cid = cid; uploadCID.textContent = 'CID: '+cid; log('Загружено в IPFS: '+cid);
+        }else{
+          // Попытка загрузить по URL — получаем через fetch
+          try{ const resp = await fetch(it.src); const b = await resp.blob(); const cid = await uploadToIPFS(b); it.cid=cid; uploadCID.textContent='CID: '+cid; log('Загружено URL->IPFS: '+cid);}catch(e){log('Ошибка загрузки URL: '+e.message)}
+        }
+      };
+      card.appendChild(upBtn);
+
+      row.appendChild(card);
+    });
+    g.appendChild(row);
+  }
+
+  // ============================
+  // Загрузка в IPFS (через Helia / IPFS HTTP API)
+  // Возвращает CID
+  // ============================
+  async function uploadToIPFS(blob){
+    // Применяем FormData -> POST /api/v0/add
+    try{
+      const gateway = $('heliaGateway').value || CONFIG.HELIA_GATEWAY;
+      log('Отправка в IPFS gateway: '+gateway);
+      const form = new FormData(); form.append('file', blob);
+      const res = await fetch(gateway + '/api/v0/add', { method:'POST', body: form });
+      // Ответ зависит от сервера. Некоторые возвращают строку, некоторые json.
+      const text = await res.text();
+      // Пытаемся распарсить JSON, иначе вытащить Hash из строки
+      try{ const j = JSON.parse(text); return j.Hash || j.hash || j.cid || (j[0] && j[0].Hash); }catch(_){
+        // Попробуем простую регулярку
+        const m = text.match(/"?Hash"?\s*[:=]\s*"?([A-Za-z0-9]+)/i);
+        if(m) return m[1];
+        // Или ответ в виде: { "Name": "file", "Hash": "Qm...", "Size": "..." }
+        throw new Error('Не удалось распарсить ответ от IPFS: '+text);
+      }
+    }catch(e){ log('Ошибка загрузки в IPFS: '+e.message); throw e; }
+  }
+
+  // ============================
+  // Простая интеграция с AI: заглушки-провайдеры
+  // Здесь оставлены точки расширения — реальные модели загружаются отдельно
+  // ============================
+  function registerAIProvider(name, loader){ Core.aiProviders[name]=loader; }
+
+  async function runAnalysisOnGallery(idx){
+    // Пример: анализ одного элемента галереи
+    const it = Core.gallery[idx];
+    if(!it) { log('Элемент не найден'); return; }
+    const providerKey = $('aiSelect').value;
+    log('Запуск анализа: provider=' + providerKey);
+    if(!Core.aiProviders[providerKey]){ log('Провайдер не зарегистрирован: '+providerKey); return; }
+    const loader = Core.aiProviders[providerKey];
+    try{
+      const model = await loader();
+      // Алгоритм использования модели зависит от реализации. Здесь — общий интерфейс: model.run(input)
+      const input = { type: it.type, src: it.src };
+      const result = await model.run(input);
+      log('Результат анализа: ' + JSON.stringify(result).slice(0,200));
+    }catch(e){ log('Ошибка анализа: '+e.message); }
+  }
+
+  // ============================
+  // Примеры провайдеров (заглушки)
+  // Для TF.js/ONNX/HuggingFace/OpenAI — создайте реальные лоадеры, использующие CDN и API-ключи
+  // Ниже — демонстрационные заглушки, которые возвращают предсказание через setTimeout
+  // ============================
+  registerAIProvider('tf', async ()=>({
+    run: async (input)=>{ await new Promise(r=>setTimeout(r,600)); return {label:'demo-object',confidence:0.78}; }
+  }));
+  registerAIProvider('onnx', async ()=>({ run: async ()=>{ await new Promise(r=>setTimeout(r,600)); return {label:'onnx-demo',confidence:0.5}; } }));
+  registerAIProvider('hf', async ()=>({ run: async ()=>{ await new Promise(r=>setTimeout(r,700)); return {text:'HF demo analysis'}; } }));
+  registerAIProvider('openai', async ()=>({ run: async ()=>{ await new Promise(r=>setTimeout(r,800)); return {text:'OpenAI demo response'}; } }));
+
+  // ============================
+  // Встроенная IDE: JS snippet + Pyodide loader (опционально)
+  // Pyodide: загружается динамически из официального CDN при нажатии
+  // ============================
+  async function openIDE(){
+    const code = `// Пример: добавить в галерею программно\naddToGalleryFromURL('https://placekitten.com/400/300','image')`;
+    const modal = document.createElement('div'); modal.style.position='fixed'; modal.style.inset='12px'; modal.style.background='rgba(2,6,23,.95)'; modal.style.zIndex=9999; modal.style.padding='12px';
+    const ta = document.createElement('textarea'); ta.style.width='100%'; ta.style.height='60%'; ta.value = code;
+    const run = document.createElement('button'); run.textContent='Запустить JS'; run.className='btn'; run.onclick = ()=>{ try{ eval(ta.value); log('JS выполнен'); }catch(e){ log('Ошибка JS: '+e.message); } };
+    const close = document.createElement('button'); close.textContent='Закрыть'; close.className='btn ghost'; close.onclick = ()=>document.body.removeChild(modal);
+    modal.appendChild(ta); modal.appendChild(run); modal.appendChild(close); document.body.appendChild(modal);
+  }
+
+  async function loadPyodideAndInit(){
+    if(Core.pyodide) { log('Pyodide уже загружен'); return; }
+    log('Загрузка Pyodide (может занять время)...');
+    // Загружаем pyodide через официальный CDN
+    const script = document.createElement('script'); script.src='https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
+    document.head.appendChild(script);
+    script.onload = async ()=>{
+      try{ Core.pyodide = await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'}); log('Pyodide загружен'); }
+      catch(e){ log('Ошибка Pyodide: '+e.message); }
+    };
+  }
+
+  // ============================
+  // Таймлапс (простейшая реализация): берем последовательность кадров и делаем видео из них
+  // Для сложных трансформаций используйте ffmpeg.wasm или серверный ffmpeg
+  // ============================
+  async function createTimelapseFromGallery(){
+    log('Создание таймлапса: простая версия (склеивание изображений в canvas)','');
+    // Проверяем, есть ли изображения
+    const imgs = Core.gallery.filter(i=>i.type==='image');
+    if(imgs.length<2){ log('Недостаточно изображений для таймлапса'); return; }
+    // Объединяем в GIF/WebM на клиенте — это нетривиально; здесь демонстрация: делаем ZIP из blob'ов или просто скачиваем последовательность
+    log('Скачиваем последовательность изображений (демо): ' + imgs.length);
+    // Для настоящего видео: используйте ffmpeg.wasm — ссылка/интеграция описаны в комментариях
+  }
+
+  // ============================
+  // Обработчики UI
+  // ============================
+  $('addCamBtn').onclick = ()=>addWebCamera();
+  $('addIpBtn').onclick = ()=>{ const url = prompt('Вставьте URL MJPEG/HTTP стрима или кадр IP-камеры:'); if(url) addIPCamerabyURL(url); };
+  $('uploadBtn').onclick = async ()=>{
+    const f = $('fileInput').files[0]; if(!f){ log('Файл не выбран'); return; }
+    addToGalleryFromBlob(f, f.type.startsWith('audio')? 'audio' : f.type.startsWith('video')? 'video' : 'image');
+  };
+  $('connectBtn').onclick = async ()=>{ const cams = await listDevices(); if(cams.length>0) { addWebCamera(); } else log('Камер не обнаружено'); };
+  $('analyzeBtn').onclick = async ()=>{ await runAnalysisOnGallery(0); };
+  $('openIDE').onclick = openIDE;
+  $('runSnippet').onclick = ()=>{ try{ addToGalleryFromURL('https://placekitten.com/420/320','image'); log('Пример добавлен'); }catch(e){log(e.message)} };
+  $('pyBtn').onclick = ()=>loadPyodideAndInit();
+  $('timelapseBtn').onclick = ()=>createTimelapseFromGallery();
+
+  // ============================
+  // Подсказки по ffmpeg.wasm и продвинутым интеграциям (комментарии / инструкции)
+  // 1) ffmpeg.wasm: официальная библиотека @ffmpeg/ffmpeg (https://github.com/ffmpegwasm/ffmpeg.wasm)
+  //    - Для использования подключите пакет через CDN (unpkg/jsdelivr) или установите в проект.
+  //    - Пример: const { createFFmpeg, fetchFile } = FFmpeg; const ffmpeg = createFFmpeg({log:true}); await ffmpeg.load();
+  //    - После загрузки можно конвертировать RTSP -> WebM, извлекать кадры, склеивать видео.
+  // 2) TensorFlow.js: подключается через https://cdn.jsdelivr.net/npm/@tensorflow/tfjs
+  //    - Загрузите модель (tf.loadGraphModel / tf.loadLayersModel) и выполняйте предсказания.
+  // 3) ONNX/WASM: используйте onnxruntime-web или onnxruntime (WASM backend) через CDN.
+  // 4) HuggingFace/OpenAI: для облачных API храните ключи на сервере и вызывайте серверный прокси из клиента.
+
+  // ============================
+  // Автоинициализация: загружаем список камер (без запроса разрешений), и выставляем значение helia
+  // ============================
+  (async ()=>{
+    try{ const devs = await listDevices(); log('Старт — устройств: '+devs.length); }catch(e){}
+    $('heliaGateway').value = CONFIG.HELIA_GATEWAY;
+  })();
+  </script>
+</body>
+</html>
