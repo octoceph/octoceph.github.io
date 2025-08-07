@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OctoCore — Веб дашборд</title>
+
+  <!--
+    OctoCore — Веб дашборд (обновлённая версия)
+
+    Изменения и новые возможности (по запросу пользователя):
+    1) Фронтенд оформлен как дашборд с правым фиксированным меню (возможность скрыть/показать).
+    2) Область появления камер ограничена шириной viewport (учитывается видимая ширина экрана).
+    3) У каждой камеры есть кнопка удаления (останавливает стрим и удаляет элемент).
+    4) Добавлена кнопка "Перезапустить" для всех камер (рестарт стримов).
+    5) Добавлена функция "Сканировать сеть" для поиска IP-камер (best-effort — ограничения браузера учтены).
+    6) Поля ввода для данных IP-камер (URL, имя, логин, пароль).
+    7) Галереи вынесены в отдельную вкладку — каждая галерея с горизонтальным таймлайном; новые галереи располагаются одна под другой.
+    8) Таймлапсы вынесены в отдельную вкладку — создание WebM таймлапса из изображений галереи.
+    9) Все загрузки в IPFS сохраняют полученные CID в localStorage (ключ: octocore_ipfs_records).
+
+    Примечание по сетевому сканированию:
+    - В браузере сканирование локальной сети ограничено политиками CORS и безопасностью.
+    - Реализована client-side попытка обнаружения MJPEG/snapshot endpoints через <img> и fetch с таймаутом.
+    - Для стабильного сканирования рекомендуется использовать серверный прокси/сканер (Node.js),
+      который вернёт список доступных IP-камер без проблем CORS, а затем клиент подключится к найденным URL.
+
+    Как использовать:
+    - Разверните этот файл на HTTPS (GitHub Pages рекомендуются).
+    - Нажмите "Подключить камеру" для доступа к веб-камерам.
+    - Можно добавлять IP-камеры вручную или запускать "Сканировать сеть".
+    - Загрузки в IPFS сохраняют CID в localStorage — можно найти в инструментах разработчика.
+
+    Код подробно прокомментирован на русском языке.
+  -->
+
+  <style>
+    /* ====== СТИЛИ ДЛЯ DASHBOARD ====== */
+    :root{ --bg:#071423; --panel:#0b1720; --accent:#06b6d4; --muted:#94a3b8; --glass: rgba(255,255,255,0.03); --sidebar-width:340px }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#03121a 0,#071423 100%);color:#e6eef6}
+
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.03)}
+    h1{font-size:1.05rem;margin:0}
+    .sub{font-size:.85rem;color:var(--muted)}
+
+    /* Обёртка контента — делаем правое меню фиксированным, main адаптируется */
+    .app{display:block;padding:18px 20px 40px 20px}
+    .topbar{display:flex;align-items:center;gap:12px}
+
+    /* Кнопка открытия/скрытия сайдбара */
+    .sidebar-toggle{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer}
+
+    /* Основная сетка: левая рабочая область + правый фиксированный сайдбар */
+    .workspace{display:block;margin-top:12px}
+
+    /* Левая панель — контент дашборда */
+    main{margin-right:var(--sidebar-width);transition:margin-right .25s ease}
+    main.full{margin-right:20px} /* когда сайдбар скрыт */
+
+    /* Панели внутри main */
+    .panel{background:var(--panel);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 30px rgba(2,6,23,.7);margin-bottom:12px}
+
+    /* Ограничение области камер: ширина не больше viewport */
+    .camera-area{max-width:100vw; /* не вылезать за viewport */ overflow:auto;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
+
+    /* Сетка камер — адаптивная */
+    .cameras{display:flex;flex-wrap:wrap;gap:10px}
+    .camera-card{background:var(--glass);padding:8px;border-radius:8px;min-width:260px;max-width:48%;position:relative}
+    .camera-card.small{min-width:180px}
+    .camera-card video, .camera-card img{width:100%;height:auto;border-radius:6px;background:black}
+
+    /* Кнопки управления на карточке */
+    .card-actions{display:flex;gap:8px;margin-top:8px}
+    .btn{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;color:#012;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .btn.danger{background:#f43f5e;color:white}
+
+    /* Сайдбар — фиксированный справа */
+    .sidebar{position:fixed;right:0;top:0;height:100vh;width:var(--sidebar-width);padding:16px;background:linear-gradient(180deg,#071826,#04121a);border-left:1px solid rgba(255,255,255,0.03);box-shadow:-8px 0 30px rgba(0,0,0,.6);transition:transform .25s ease;z-index:60}
+    .sidebar.hidden{transform:translateX(100%)}
+    .sidebar h3{margin-top:0}
+
+    /* Вкладки (Tabs) */
+    .tabs{display:flex;gap:8px;margin-bottom:12px}
+    .tab{padding:8px 12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+    .tab.active{background:linear-gradient(90deg,#052a34,#03343a);border:1px solid rgba(6,182,212,0.12)}
+
+    /* Галереи и таймлайны */
+    .gallery-list{display:flex;flex-direction:column;gap:12px}
+    .gallery-block{background:#071827;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
+    .timeline{display:flex;gap:8px;overflow:auto;padding:8px}
+    .media-thumb{min-width:150px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.02);background:#001219;padding:6px}
+
+    /* Таймлапсы список */
+    .timelapse-list{display:flex;flex-direction:column;gap:10px}
+
+    /* Локальное сообщение */
+    .log{max-height:160px;overflow:auto;padding:8px;background:rgba(255,255,255,0.01);border-radius:8px;color:var(--muted)}
+
+    /* Адаптив */
+    @media(max-width:900px){
+      .camera-card{max-width:100%}
+      main{margin-right:20px}
+      .sidebar{position:fixed;width:100%;height:40vh;bottom:0;top:auto;right:0;left:0}
+    }
+  </style>
+</head>
+<body>
+  <!-- Верхняя панель с названием и переключателем сайдбара -->
+  <header>
+    <div>
+      <h1>OctoCore — DASHBOARD</h1>
+      <div class="sub">Мультикамерный сбор · AI · IPFS · Таймлапсы</div>
+    </div>
+    <div class="topbar">
+      <button id="toggleSidebar" class="sidebar-toggle">Скрыть меню</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <div class="workspace">
+
+      <!-- Основной контент (лево) -->
+      <main id="mainContent">
+
+        <!-- Вкладки: Камеры | Галереи | Таймлапсы -->
+        <div class="tabs">
+          <div id="tabCams" class="tab active">Камеры</div>
+          <div id="tabGallery" class="tab">Галереи</div>
+          <div id="tabTime" class="tab">Таймлапсы</div>
+        </div>
+
+        <!-- ========== КАМЕРЫ ========== -->
+        <section id="sectionCams">
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <strong>Управление камерами</strong>
+                <div class="sub">Добавляйте веб-камеры, IP-камеры, удаляйте, перезапускайте.</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button id="btnRestartAll" class="btn ghost">Перезапустить все</button>
+                <button id="btnScanNet" class="btn">Сканировать сеть</button>
+              </div>
+            </div>
+
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:8px 0">
+
+            <!-- Панель добавления камер -->
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+              <select id="deviceSelect" style="flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)"></select>
+              <button id="btnAddCam" class="btn">Добавить веб-камеру</button>
+            </div>
+
+            <!-- Поля для IP-камер -->
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <input id="ipUrl" placeholder="URL IP-камеры (http(s)://... или MJPEG endpoint)" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+              <div style="display:flex;gap:6px">
+                <input id="ipName" placeholder="Название камеры" style="flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+                <input id="ipUser" placeholder="Пользователь" style="width:120px;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+                <input id="ipPass" placeholder="Пароль" type="password" style="width:120px;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+              </div>
+              <div style="display:flex;gap:8px">
+                <button id="btnAddIP" class="btn">Добавить IP-камеру</button>
+                <button id="btnClearIP" class="btn ghost">Очистить поля</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Область камер: ограничена шириной viewport (см. CSS) -->
+          <div class="panel camera-area">
+            <div id="cameraContainer" class="cameras"></div>
+          </div>
+
+          <div class="panel">
+            <strong>Логи</strong>
+            <div id="log" class="log"></div>
+          </div>
+        </section>
+
+        <!-- ========== ГАЛЕРЕИ ========== -->
+        <section id="sectionGallery" style="display:none">
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <strong>Галереи</strong>
+                <div class="sub">Галереи с горизонтальными таймлайнами. Новая галерея добавляется под предыдущей.</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <input id="newGalleryName" placeholder="Название новой галереи" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+                <button id="btnNewGallery" class="btn">Создать галерею</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="galleries" class="gallery-list"></div>
+        </section>
+
+        <!-- ========== ТАЙМЛАПСЫ ========== -->
+        <section id="sectionTime" style="display:none">
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <strong>Таймлапсы</strong>
+                <div class="sub">Создавайте WebM таймлапсы из изображений выбранной галереи.</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <select id="tlGallerySelect" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)"></select>
+                <input id="tlFps" type="number" min="1" max="60" value="5" style="width:80px;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+                <button id="btnCreateTimelapse" class="btn">Создать</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="timelapses" class="panel timelapse-list"></div>
+        </section>
+
+      </main>
+
+      <!-- ========== Сайдбар: фиксированный правый блок (с возможностью скрыть) ========== -->
+      <aside id="sidebar" class="sidebar">
+        <h3>Меню</h3>
+        <div style="margin-bottom:8px">Быстрые действия и конфигурация</div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="btnConnect" class="btn">Подключить все камеры (просьба разрешения)</button>
+          <button id="btnUploadSelected" class="btn ghost">Загрузить выбранные в IPFS</button>
+          <button id="btnShowStorage" class="btn ghost">Показать сохранённые CID</button>
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0">
+
+        <div>
+          <div class="sub">Helia / IPFS Gateway</div>
+          <input id="heliaGateway" placeholder="https://api.helia.io" style="width:100%;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+        </div>
+
+        <div style="margin-top:12px;color:var(--muted);font-size:.85rem">Настройки и подсказки: сканирование сети может быть ограничено браузером из-за CORS и политики безопасности. Для стабильного сканирования используйте серверный компонент.</div>
+      </aside>
+
+    </div>
+  </div>
+
+  <script>
+  /***************************************************************************
+   * OctoCore — DASHBOARD (обновлённая веб-версия)
+   *
+   * Внимание: код выполняется в браузере и ориентирован на размещение на HTTPS (GitHub Pages).
+   * Каждая функция сопровождается подробными комментариями на русском языке.
+   **************************************************************************/
+
+  // =====================
+  // Конфигурация по умолчанию
+  // =====================
+  const DEFAULTS = {
+    HELIA_GATEWAY: 'https://api.helia.io',
+    SIDEBAR_WIDTH: 340,
+    IPFS_RECORDS_KEY: 'octocore_ipfs_records'
+  };
+
+  // =====================
+  // Хранилище приложения (в памяти)
+  // =====================
+  const Core = {
+    cameras: [], // {id, deviceId, stream, el}
+    galleries: [], // {id, name, items: [{type, src, blob, cid, meta}]}
+    timelapses: [], // {id, name, blob, cid}
+    ipfsRecords: loadIPFSRecords(), // массив записей, сохранённых в localStorage
+    sidebarVisible: true
+  };
+
+  // =====================
+  // Утилиты: селекторы, лог
+  // =====================
+  const $ = id => document.getElementById(id);
+  function log(msg){ const el = $('log'); const time = new Date().toLocaleTimeString(); el.textContent += `[${time}] ${msg}\n`; el.scrollTop = el.scrollHeight; }
+
+  // Более безопасная генерация id
+  function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+
+  // =====================
+  // localStorage: загрузка/сохранение записей IPFS
+  // =====================
+  function loadIPFSRecords(){
+    try{ const raw = localStorage.getItem(DEFAULTS.IPFS_RECORDS_KEY); return raw ? JSON.parse(raw) : []; }catch(e){ console.warn('Ошибка чтения localStorage',e); return []; }
+  }
+  function saveIPFSRecord(record){
+    Core.ipfsRecords.push(record);
+    localStorage.setItem(DEFAULTS.IPFS_RECORDS_KEY, JSON.stringify(Core.ipfsRecords));
+  }
+
+  // =====================
+  // Инициализация: подгрузка списка устройств в селект
+  // =====================
+  async function populateDeviceList(){
+    try{
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d=>d.kind === 'videoinput');
+      const sel = $('deviceSelect'); sel.innerHTML = '';
+      cams.forEach(d=>{ const opt = document.createElement('option'); opt.value = d.deviceId; opt.textContent = d.label || ('Камера ' + (sel.length+1)); sel.appendChild(opt); });
+      if(cams.length===0){ const opt = document.createElement('option'); opt.value=''; opt.textContent='Кликните Подключить все камеры'; sel.appendChild(opt); }
+      log('Список устройств обновлён: ' + cams.length + ' видеовходов');
+    }catch(e){ log('Ошибка получения устройств: ' + e.message); }
+  }
+
+  // =====================
+  // Добавление веб-камеры: startCamera(deviceId)
+  // - Принимает deviceId (строка) или пустое значение для дефолтного устройства
+  // - Создаёт элемент <video>, добавляет его в DOM, сохраняет мета-информацию в Core.cameras
+  // =====================
+  async function startCamera(deviceId=''){
+    try{
+      // Опции getUserMedia. Если deviceId пустой, получаем дефолтное устройство.
+      const constraints = { video: deviceId ? { deviceId: { exact: deviceId } } : true, audio: false };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Создаём DOM-элемент для камеры
+      const card = document.createElement('div'); card.className = 'camera-card';
+      const video = document.createElement('video'); video.autoplay = true; video.muted = true; video.playsInline = true; video.srcObject = stream;
+      card.appendChild(video);
+
+      // Действия: удалить камеру, снять snapshot, загрузить snapshot в IPFS
+      const actions = document.createElement('div'); actions.className = 'card-actions';
+      const btnSnapshot = document.createElement('button'); btnSnapshot.className='btn ghost'; btnSnapshot.textContent='Снимок';
+      const btnDelete = document.createElement('button'); btnDelete.className='btn danger'; btnDelete.textContent='Удалить';
+      actions.appendChild(btnSnapshot); actions.appendChild(btnDelete);
+      card.appendChild(actions);
+
+      // Вставляем в контейнер камер
+      $('cameraContainer').appendChild(card);
+
+      // Сохраняем в Core.cameras
+      const camId = uid('cam');
+      Core.cameras.push({ id: camId, deviceId, stream, el: card, videoEl: video });
+
+      // Событие снимка: записываем 1 кадр в canvas -> blob -> добавляем в галерею
+      btnSnapshot.onclick = async ()=>{
+        try{
+          const blob = await captureImageFromVideo(video);
+          addBlobToGallery(blob, 'image');
+          log('Снимок добавлен в галерею');
+        }catch(e){ log('Ошибка снимка: '+e.message); }
+      };
+
+      // Удаление: останавливаем все треки и удаляем DOM + запись Core
+      btnDelete.onclick = ()=>{
+        try{ stopStream(stream); }catch(e){}
+        $('cameraContainer').removeChild(card);
+        Core.cameras = Core.cameras.filter(c=>c.id !== camId);
+        log('Камера удалена: ' + camId);
+      };
+
+      log('Камера добавлена: ' + camId + (deviceId? ' (deviceId='+deviceId+')':''));
+      return camId;
+    }catch(e){ log('Не удалось запустить камеру: '+(e.message||e)); throw e; }
+  }
+
+  // =====================
+  // Остановка стрима (удаление треков) — корректное освобождение камеры
+  // =====================
+  function stopStream(stream){
+    try{ const tracks = stream.getTracks(); tracks.forEach(t=>t.stop()); }catch(e){ console.warn('Ошибка остановки стрима',e); }
+  }
+
+  // =====================
+  // Перезапуск всех камер: остановить и заново вызвать startCamera для каждого сохранённого deviceId
+  // =====================
+  async function restartAllCameras(){
+    log('Перезапуск всех камер...');
+    // Сохраним список deviceId (порядок)
+    const ids = Core.cameras.map(c=>c.deviceId);
+    // Остановим текущие стримы и очистим DOM
+    Core.cameras.forEach(c=>{ try{ stopStream(c.stream); if(c.el && c.el.parentNode) c.el.parentNode.removeChild(c.el); }catch(e){} });
+    Core.cameras = [];
+    // Запустим каждую камеру заново (если deviceId пустой — будет дефолтная)
+    for(const d of ids){ try{ await startCamera(d); }catch(e){ log('Ошибка при рестарте камеры: '+(e.message||e)); } }
+    log('Перезапуск завершён');
+  }
+
+  // =====================
+  // Сканирование сети для поиска IP-камер (best-effort)
+  // - В браузере мы не можем сканировать порты/RTSP напрямую из-за ограничений безопасности
+  // - Мы пробуем набор типичных HTTP/MJPEG endpoint'ов, создавая объекты Image и отслеживая onload/onerror
+  // - Это работает для камер, которые отдают MJPEG/snapshot без строгого CORS
+  // - Для надёжного сканирования используйте серверный компонент
+  // =====================
+  async function scanLocalNetwork(baseIp, start=1, end=20, timeout=1500){
+    log(`Запуск сканирования сети ${baseIp}.x с ${start} по ${end} (timeout ${timeout}ms)`);
+    // Частый набор endpoint'ов для MJPEG/snapshot
+    const endpoints = ['','/snapshot.jpg','/image.jpg','/video','/mjpeg','/axis-cgi/mjpg/video.cgi','/cgi-bin/Streaming/LiveView.cgi'];
+    const found = [];
+
+    // Вспомогательная функция для теста одного URL: используем Image для evading CORS чтения
+    function testImageUrl(url, t){
+      return new Promise((resolve)=>{
+        const img = new Image();
+        let timed = false;
+        const timer = setTimeout(()=>{ timed=true; img.src = ''; resolve(false); }, t);
+        img.onload = ()=>{ if(!timed){ clearTimeout(timer); resolve(true); }};
+        img.onerror = ()=>{ if(!timed){ clearTimeout(timer); resolve(false); }};
+        // Если URL не поддерживает image, onerror будет вызван или таймаут
+        img.src = url;
+      });
+    }
+
+    for(let i = start; i<=end; i++){
+      const ip = `${baseIp}.${i}`;
+      for(const ep of endpoints){
+        const url = `http://${ip}${ep}`;
+        try{
+          const ok = await testImageUrl(url, timeout);
+          if(ok){
+            log('Найден возможный MJPEG/snapshot: ' + url);
+            found.push({ip, url});
+            break; // если один endpoint найден — достаточно
+          }
+        }catch(e){ /* продолжаем */ }
+      }
+    }
+
+    log('Сканирование завершено. Найдено: ' + found.length);
+    return found;
+  }
+
+  // =====================
+  // Добавление IP-камеры по URL (вставляет как <img> MJPEG или как статический снимок)
+  // =====================
+  function addIPCamera({url, name, user, pass}){
+    try{
+      const card = document.createElement('div'); card.className='camera-card';
+      // Попробуем вставить как img (MJPEG) — это простейшая поддержка на клиенте
+      const img = document.createElement('img'); img.src = url; img.alt = name || url; img.style.width='100%';
+      card.appendChild(img);
+
+      // Кнопки: добавить snapshot в галерею, удалить
+      const actions = document.createElement('div'); actions.className='card-actions';
+      const btnSnapshot = document.createElement('button'); btnSnapshot.className='btn ghost'; btnSnapshot.textContent='Снимок';
+      const btnDelete = document.createElement('button'); btnDelete.className='btn danger'; btnDelete.textContent='Удалить';
+      actions.appendChild(btnSnapshot); actions.appendChild(btnDelete);
+      card.appendChild(actions);
+
+      $('cameraContainer').appendChild(card);
+
+      // Snapshot: fetch изображения и добавить в галерею
+      btnSnapshot.onclick = async ()=>{
+        try{
+          const resp = await fetch(url); const blob = await resp.blob(); addBlobToGallery(blob,'image'); log('Snapshot IP-камеры добавлен в галерею');
+        }catch(e){ log('Не удалось получить snapshot: '+e.message);
+          // Альтернатива: попробовать создать Image и canvas
+        }
+      };
+
+      btnDelete.onclick = ()=>{ try{ if(card.parentNode) card.parentNode.removeChild(card); }catch(e){} log('IP-камера удалена: '+(name||url)); };
+
+      log('IP-камера добавлена: ' + (name||url));
+    }catch(e){ log('Ошибка при добавлении IP-камеры: '+e.message); }
+  }
+
+  // =====================
+  // Захват изображения из <video> в Canvas -> Blob (для снимков)
+  // =====================
+  function captureImageFromVideo(videoEl, mime='image/png', quality=0.92){
+    return new Promise((resolve, reject)=>{
+      try{
+        const w = videoEl.videoWidth || 640;
+        const h = videoEl.videoHeight || 480;
+        const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d'); ctx.drawImage(videoEl, 0, 0, w, h);
+        canvas.toBlob(blob => resolve(blob), mime, quality);
+      }catch(e){ reject(e); }
+    });
+  }
+
+  // =====================
+  // Галерея: создание новой галереи и добавление blob/url
+  // =====================
+  function createGallery(name){
+    const gid = uid('gallery');
+    const gallery = { id: gid, name: name || 'Без названия', items: [] };
+    Core.galleries.push(gallery);
+    renderGalleries();
+    log('Галерея создана: ' + gid);
+    updateTimelapseGallerySelect();
+    return gid;
+  }
+
+  function addBlobToGallery(blob, type='image', galleryId=null){
+    // По умолчанию добавляем в первую галерею, если есть
+    if(Core.galleries.length===0) createGallery('Default');
+    const g = galleryId ? Core.galleries.find(x=>x.id===galleryId) : Core.galleries[0];
+    const src = URL.createObjectURL(blob);
+    const item = { id: uid('item'), type, src, blob, cid: null, meta: {size: blob.size, mime: blob.type} };
+    g.items.push(item);
+    renderGalleries();
+    log('Медиа добавлено в галерею: ' + g.id);
+    return item;
+  }
+
+  function addUrlToGallery(url, type='image', galleryId=null){
+    if(Core.galleries.length===0) createGallery('Default');
+    const g = galleryId ? Core.galleries.find(x=>x.id===galleryId) : Core.galleries[0];
+    const item = { id: uid('item'), type, src: url, blob: null, cid: null, meta:{} };
+    g.items.push(item);
+    renderGalleries();
+    log('URL добавлен в галерею: ' + g.id);
+    return item;
+  }
+
+  // =====================
+  // Отрисовка списка галерей: каждая галерея — блок с горизонтальным таймлайном
+  // =====================
+  function renderGalleries(){
+    const container = $('galleries'); container.innerHTML = '';
+    Core.galleries.forEach(g=>{
+      const block = document.createElement('div'); block.className='gallery-block';
+      const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between';
+      const title = document.createElement('div'); title.innerHTML = `<strong>${g.name}</strong> <div style='font-size:.85rem;color:${DEFAULTS.HELIA_GATEWAY? 'var(--muted)':'var(--muted)'}'>${g.items.length} items</div>`;
+      const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px';
+      const btnUpload = document.createElement('button'); btnUpload.className='btn ghost'; btnUpload.textContent='Загрузить всё в IPFS';
+      const btnExport = document.createElement('button'); btnExport.className='btn'; btnExport.textContent='Экспорт';
+      actions.appendChild(btnUpload); actions.appendChild(btnExport);
+      header.appendChild(title); header.appendChild(actions);
+      block.appendChild(header);
+
+      // Таймлайн: горизонтальная прокрутка
+      const timeline = document.createElement('div'); timeline.className='timeline';
+      g.items.forEach(it=>{
+        const thumb = document.createElement('div'); thumb.className='media-thumb';
+        if(it.type==='video'){
+          const v = document.createElement('video'); v.src = it.src; v.controls = true; v.style.width='180px'; thumb.appendChild(v);
+        }else if(it.type==='audio'){
+          const a = document.createElement('audio'); a.src = it.src; a.controls = true; thumb.appendChild(a);
+        }else{
+          const im = document.createElement('img'); im.src = it.src; im.style.width='180px'; thumb.appendChild(im);
+        }
+        // Подпись и кнопки для каждого медиа-элемента
+        const meta = document.createElement('div'); meta.style.fontSize='.8rem'; meta.style.color='var(--muted)'; meta.style.marginTop='6px';
+        meta.textContent = it.cid ? ('CID: '+it.cid) : '';
+        thumb.appendChild(meta);
+
+        // Кнопки: загрузить конкретный элемент, удалить
+        const row = document.createElement('div'); row.style.display='flex'; row.style.gap='6px'; row.style.marginTop='6px';
+        const btnUp = document.createElement('button'); btnUp.className='btn ghost'; btnUp.textContent='IPFS';
+        const btnDel = document.createElement('button'); btnDel.className='btn danger'; btnDel.textContent='Удалить';
+        row.appendChild(btnUp); row.appendChild(btnDel);
+        thumb.appendChild(row);
+
+        // Действия
+        btnUp.onclick = async ()=>{
+          try{
+            let blob = it.blob;
+            if(!blob){ // если у нас только src, пытаемся получить blob через fetch
+              const resp = await fetch(it.src); blob = await resp.blob();
+            }
+            const cid = await uploadToIPFS(blob);
+            it.cid = cid; meta.textContent = 'CID: '+cid; saveIPFSRecord({cid, galleryId:g.id, itemId:it.id, timestamp: Date.now()});
+            log('Элемент загружен в IPFS: ' + cid);
+          }catch(e){ log('Ошибка загрузки на IPFS: '+e.message); }
+        };
+
+        btnDel.onclick = ()=>{
+          g.items = g.items.filter(x=>x.id !== it.id);
+          renderGalleries();
+          log('Элемент удалён из галереи');
+        };
+
+        timeline.appendChild(thumb);
+      });
+
+      block.appendChild(timeline);
+      container.appendChild(block);
+
+      // Действие загрузки всей галереи в IPFS: проходим по элементам и загружаем по очереди
+      btnUpload.onclick = async ()=>{
+        log('Загрузка галереи в IPFS: ' + g.name);
+        const cids = [];
+        for(const it of g.items){
+          let blob = it.blob;
+          if(!blob){ try{ const resp = await fetch(it.src); blob = await resp.blob(); }catch(e){ log('Не удалось получить blob для элемента: '+e.message); continue; } }
+          try{ const cid = await uploadToIPFS(blob); it.cid = cid; cids.push({itemId:it.id, cid}); log('Загружен: '+cid); }catch(e){ log('Ошибка загрузки элемента: '+e.message); }
+        }
+        // Сохраняем запись о галерее в локальном реестре IPFS
+        const rec = { id: uid('rec'), type:'gallery', galleryId: g.id, name: g.name, cids, timestamp: Date.now() };
+        saveIPFSRecord(rec);
+        log('Галерея загружена. Сохранено в localStorage.');
+      };
+
+      // Экспорт галереи: простая загрузка JSON со списком ссылок
+      btnExport.onclick = ()=>{
+        const data = { id: g.id, name: g.name, items: g.items.map(i=>({id:i.id,type:i.type,src:i.src,cid:i.cid})) };
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `${g.name || 'gallery'}.json`; a.click();
+        URL.revokeObjectURL(url);
+      };
+
+    });
+  }
+
+  // =====================
+  // Обёртка: загрузка blob в IPFS через Helia/IPFS HTTP API
+  // - Добавляет запись в localStorage (saveIPFSRecord)
+  // - Возвращает CID
+  // =====================
+  async function uploadToIPFS(blob){
+    try{
+      const gateway = $('heliaGateway').value || DEFAULTS.HELIA_GATEWAY;
+      log('Отправка в IPFS gateway: ' + gateway);
+      const form = new FormData(); form.append('file', blob);
+      const res = await fetch(gateway + '/api/v0/add', { method: 'POST', body: form });
+      const text = await res.text();
+      // Попробуем распарсить как JSON, иначе выдёрнем Hash
+      try{
+        const j = JSON.parse(text);
+        const cid = j.Hash || j.Hash || j.Hash || j.Hash || j.cid || (j[0] && j[0].Hash);
+        if(!cid) throw new Error('CID не найден в JSON ответе');
+        // Регистрируем запись
+        const rec = { id: uid('rec'), cid, timestamp: Date.now(), size: blob.size || null, gateway };
+        saveIPFSRecord(rec);
+        return cid;
+      }catch(e){
+        // Пытаемся regex
+        const m = text.match(/"?Hash"?\s*[:=]\s*"?([A-Za-z0-9]+)/i);
+        if(m){ const cid = m[1]; saveIPFSRecord({ id: uid('rec'), cid, timestamp: Date.now(), gateway }); return cid; }
+        throw new Error('Не удалось распарсить ответ от IPFS: ' + text);
+      }
+    }catch(e){ log('Ошибка загрузки в IPFS: ' + e.message); throw e; }
+  }
+
+  // =====================
+  // ТАЙМЛАПС: создание WebM видео из последовательности изображений
+  // Алгоритм:
+  // 1) Загружаем все изображения в Image объекты
+  // 2) Создаём canvas нужного размера
+  // 3) Используем canvas.captureStream(FPS) и MediaRecorder для записи
+  // 4) Для каждой картинки рисуем на canvas и ждём нужную длительность кадра
+  // 5) Останавливаем рекордер и получаем Blob (WebM)
+  // =====================
+  async function createTimelapseFromGallery(galleryId, fps=5){
+    const g = Core.galleries.find(x=>x.id === galleryId);
+    if(!g) { log('Галерея не найдена'); return; }
+    const imgs = g.items.filter(i=>i.type === 'image');
+    if(imgs.length < 2){ log('Недостаточно изображений в галерее'); return; }
+
+    log('Создание таймлапса из галереи: ' + g.name + ' ('+imgs.length+' кадров)');
+
+    // Загружаем изображения
+    const loaded = [];
+    for(const it of imgs){
+      try{
+        const img = await loadImage(it.src);
+        loaded.push(img);
+      }catch(e){ log('Не удалось загрузить кадр: '+e.message); }
+    }
+    if(loaded.length===0){ log('Нет доступных кадров'); return; }
+
+    // Создаём canvas размеров первого кадра
+    const width = loaded[0].naturalWidth || loaded[0].width;
+    const height = loaded[0].naturalHeight || loaded[0].height;
+    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    // Настраиваем MediaRecorder на canvas stream
+    const stream = canvas.captureStream(fps);
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+    const chunks = [];
+    recorder.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+
+    recorder.start();
+    // Для каждого кадра — рисуем и ждём frameDelay
+    const frameDelay = 1000 / fps;
+    for(const im of loaded){
+      ctx.drawImage(im, 0, 0, width, height);
+      // Ждём, чтобы кадр был захвачен MediaRecorder
+      await wait(frameDelay);
+    }
+
+    recorder.stop();
+    // Дождёмся окончания записи
+    await new Promise(res => recorder.onstop = res);
+
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const tlId = uid('tl');
+    Core.timelapses.push({ id: tlId, name: g.name + '_timelapse', blob, cid: null });
+    renderTimelapses();
+    log('Таймлапс создан: ' + tlId + ', размер ' + Math.round(blob.size/1024) + 'KB');
+    return tlId;
+  }
+
+  // Вспомогательная функция: загрузка Image из src (поддерживает blob/URL)
+  function loadImage(src){
+    return new Promise((resolve, reject)=>{
+      const img = new Image(); img.crossOrigin = 'anonymous';
+      img.onload = ()=>resolve(img); img.onerror = (e)=>reject(new Error('Не удалось загрузить изображение: '+src));
+      img.src = src;
+    });
+  }
+
+  function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+  // =====================
+  // Отрисовка списка таймлапсов
+  // =====================
+  function renderTimelapses(){
+    const container = $('timelapses'); container.innerHTML = '';
+    Core.timelapses.forEach(t=>{
+      const wrap = document.createElement('div'); wrap.style.display='flex'; wrap.style.justifyContent='space-between'; wrap.style.alignItems='center'; wrap.style.marginBottom='8px';
+      const title = document.createElement('div'); title.innerHTML = `<strong>${t.name}</strong>`;
+      const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px';
+      const aPlay = document.createElement('button'); aPlay.className='btn ghost'; aPlay.textContent='Просмотреть';
+      const aUp = document.createElement('button'); aUp.className='btn'; aUp.textContent='Загрузить в IPFS';
+      actions.appendChild(aPlay); actions.appendChild(aUp);
+      wrap.appendChild(title); wrap.appendChild(actions);
+      container.appendChild(wrap);
+
+      aPlay.onclick = ()=>{ const url = URL.createObjectURL(t.blob); const w = window.open(url); };
+      aUp.onclick = async ()=>{
+        try{ const cid = await uploadToIPFS(t.blob); t.cid = cid; saveIPFSRecord({id:uid('rec'), cid, type:'timelapse', name:t.name, timestamp:Date.now()}); log('Таймлапс загружен: '+cid); }catch(e){ log('Ошибка загрузки таймлапса: '+e.message); }
+      };
+    });
+  }
+
+  // =====================
+  // Помощник: показать список сохранённых CID из localStorage
+  // =====================
+  function showIPFSRecords(){
+    const records = loadIPFSRecords();
+    if(records.length===0){ alert('Записей в localStorage не найдено'); return; }
+    const txt = JSON.stringify(records, null, 2);
+    const w = window.open(); w.document.body.style.background='#071423'; w.document.body.style.color='#e6eef6'; const pre = w.document.createElement('pre'); pre.textContent = txt; w.document.body.appendChild(pre);
+  }
+
+  // =====================
+  // UI: подключение обработчиков кнопок
+  // =====================
+  $('toggleSidebar').onclick = ()=>{
+    Core.sidebarVisible = !Core.sidebarVisible;
+    const s = $('sidebar'); if(Core.sidebarVisible){ s.classList.remove('hidden'); $('toggleSidebar').textContent='Скрыть меню'; $('mainContent').classList.remove('full'); } else { s.classList.add('hidden'); $('toggleSidebar').textContent='Показать меню'; $('mainContent').classList.add('full'); }
+  };
+
+  $('btnAddCam').onclick = async ()=>{ const deviceId = $('deviceSelect').value; await startCamera(deviceId); };
+  $('btnRestartAll').onclick = ()=>restartAllCameras();
+  $('btnAddIP').onclick = ()=>{ const url = $('ipUrl').value.trim(); const name = $('ipName').value.trim(); const user=$('ipUser').value.trim(); const pass=$('ipPass').value.trim(); if(!url){ alert('Введите URL камеры'); return; } addIPCamera({url,name,user,pass}); };
+  $('btnClearIP').onclick = ()=>{ $('ipUrl').value=''; $('ipName').value=''; $('ipUser').value=''; $('ipPass').value=''; };
+
+  // Сканирование: просим базовый IP, диапазон
+  $('btnScanNet').onclick = async ()=>{
+    const base = prompt('Введите базовый IP (например: 192.168.1)'); if(!base) return;
+    const start = parseInt(prompt('Старт (например 1)','1')) || 1; const end = parseInt(prompt('Конец (например 20)','20')) || 20;
+    const found = await scanLocalNetwork(base, start, end, 1200);
+    if(found.length>0){
+      const choose = confirm('Найдено '+found.length+' устройств. Добавить первый в камеру?');
+      if(choose) addIPCamera({url:found[0].url, name:'Found-'+found[0].ip});
+    }else{ alert('Ничего не найдено (попробуйте другой диапазон или используйте серверный сканер)'); }
+  };
+
+  // Вкладки
+  $('tabCams').onclick = ()=>{ $('sectionCams').style.display='block'; $('sectionGallery').style.display='none'; $('sectionTime').style.display='none'; setActiveTab('tabCams'); };
+  $('tabGallery').onclick = ()=>{ $('sectionCams').style.display='none'; $('sectionGallery').style.display='block'; $('sectionTime').style.display='none'; setActiveTab('tabGallery'); };
+  $('tabTime').onclick = ()=>{ $('sectionCams').style.display='none'; $('sectionGallery').style.display='none'; $('sectionTime').style.display='block'; setActiveTab('tabTime'); };
+
+  function setActiveTab(id){ ['tabCams','tabGallery','tabTime'].forEach(t=>$(t).classList.remove('active')); $(id).classList.add('active'); }
+
+  // Галерея: кнопка создания
+  $('btnNewGallery').onclick = ()=>{ const name = $('newGalleryName').value.trim() || 'Новая галерея'; createGallery(name); $('newGalleryName').value=''; };
+
+  // Timelapse: создать
+  $('btnCreateTimelapse').onclick = async ()=>{
+    const gid = $('tlGallerySelect').value; if(!gid){ alert('Выберите галерею'); return; }
+    const fps = parseInt($('tlFps').value) || 5; const id = await createTimelapseFromGallery(gid, fps);
+    if(id) log('Таймлапс создан: ' + id);
+  };
+
+  // Сайдбар: быстрые действия
+  $('btnConnect').onclick = async ()=>{ await populateDeviceList(); // предложим пользователям дать разрешение
+    try{ await navigator.mediaDevices.getUserMedia({video:true}); await populateDeviceList(); alert('Камера(-ы) обнаружены - выберите и нажмите Добавить'); }catch(e){ alert('Не удалось получить доступ к камере: '+e.message); }
+  };
+  $('btnShowStorage').onclick = ()=>showIPFSRecords();
+
+  // Обновление селекта галерей для таймлапсов
+  function updateTimelapseGallerySelect(){
+    const sel = $('tlGallerySelect'); sel.innerHTML = '';
+    Core.galleries.forEach(g=>{ const o = document.createElement('option'); o.value = g.id; o.textContent = g.name; sel.appendChild(o); });
+  }
+
+  // =====================
+  // Инициализация при загрузке страницы
+  // =====================
+  (async ()=>{
+    // Установим gateway поле, загрузим устройства
+    $('heliaGateway').value = DEFAULTS.HELIA_GATEWAY;
+    await populateDeviceList();
+    // Создадим стартовую пустую галерею
+    createGallery('Main Gallery');
+    renderGalleries();
+    renderTimelapses();
+    log('OctoCore Dashboard инициализирован');
+  })();
+
+  // =====================
+  // Дополнительные примечания (безопасность, CORS)
+  // =====================
+  // 1) Скрипт пытается обращаться к локальным IP-камерам; многие устройства требуют аутентификации или запрещают CORS.
+  // 2) Для разработки рекомендуем развернуть небольшой сервер (Node.js) который будет проксировать запросы к камерам и предоставит
+  //    безопасный endpoint для клиента. Это решит большинство проблем с обнаружением и получением снимков.
+  // 3) Для IPFS/Helia в продакшне лучше использовать собственный gateway или авторизованный сервис (чтобы избежать rate limit).
+
+  </script>
+</body>
+</html>
