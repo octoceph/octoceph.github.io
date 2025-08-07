@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OctoCore Dashboard</title>
+<style>
+  body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; }
+  #sidebar { width: 300px; background: #1e1e1e; color: white; padding: 10px; overflow-y: auto; position: fixed; left: 0; top: 0; bottom: 0; transition: transform 0.3s ease; }
+  #sidebar.hidden { transform: translateX(-100%); }
+  #main { flex: 1; margin-left: 300px; display: flex; flex-direction: column; }
+  header { background: #333; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .camera-container { display: flex; flex-wrap: wrap; max-width: 100vw; }
+  .camera { position: relative; margin: 5px; }
+  .camera video { width: 320px; height: 240px; background: black; }
+  .remove-btn { position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; cursor: pointer; }
+  .ai-btn { position: absolute; bottom: 5px; right: 5px; background: #00bfff; color: white; border: none; cursor: pointer; }
+  nav { display: flex; background: #444; color: white; }
+  nav button { flex: 1; padding: 10px; background: none; border: none; color: white; cursor: pointer; }
+  nav button.active { background: #666; }
+  .tab { display: none; flex: 1; overflow-y: auto; }
+  .tab.active { display: block; }
+  .gallery { overflow-x: auto; white-space: nowrap; border-bottom: 1px solid #ccc; padding: 5px; }
+  .gallery img { height: 100px; margin-right: 5px; }
+  #logConsole { background: #111; color: #0f0; padding: 5px; font-family: monospace; overflow-y: auto; height: 200px; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h3>Меню</h3>
+  <button onclick="addCamera()">Добавить веб-камеру</button>
+  <h4>IP Камера</h4>
+  <input id="ipCamUrl" placeholder="URL IP камеры">
+  <input id="ipCamLogin" placeholder="Логин">
+  <input id="ipCamPass" placeholder="Пароль" type="password">
+  <button onclick="addIPCamera()">Добавить IP камеру</button>
+  <hr>
+  <h4>Глобальные модели</h4>
+  <select id="globalModel"></select>
+  <button onclick="uploadModel()">Загрузить модель</button>
+  <hr>
+  <button onclick="restartCameras()">Перезапустить все камеры</button>
+  <button onclick="scanNetwork()">Сканировать сеть</button>
+  <hr>
+  <button onclick="saveToIPFS()">Сохранить в IPFS</button>
+</div>
+<div id="main">
+  <header>
+    <span>OctoCore Dashboard</span>
+    <button onclick="toggleSidebar()">☰</button>
+  </header>
+  <nav>
+    <button onclick="showTab('cameras')" class="active">Камеры</button>
+    <button onclick="showTab('galleries')">Галереи</button>
+    <button onclick="showTab('timelapses')">Таймлапсы</button>
+  </nav>
+  <div id="cameras" class="tab active">
+    <div class="camera-container" id="cameraContainer"></div>
+  </div>
+  <div id="galleries" class="tab"></div>
+  <div id="timelapses" class="tab"></div>
+  <div id="logConsole"></div>
+</div>
+<script>
+let cameras = [];
+let sidebarVisible = true;
+let models = ["Модель 1", "Модель 2"];
+
+function logMessage(msg){
+  let logDiv = document.getElementById('logConsole');
+  logDiv.innerHTML += `<div>> ${msg}</div>`;
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function toggleSidebar(){
+  sidebarVisible = !sidebarVisible;
+  document.getElementById('sidebar').classList.toggle('hidden', !sidebarVisible);
+}
+function showTab(id){
+  document.querySelectorAll('nav button').forEach(btn=>btn.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(tab=>tab.classList.remove('active'));
+  document.querySelector(`nav button[onclick="showTab('${id}')"]`).classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+async function addCamera(){
+  try{
+    let stream = await navigator.mediaDevices.getUserMedia({video:true});
+    createCameraElement(stream);
+    logMessage("Веб-камера добавлена");
+  }catch(e){alert('Ошибка доступа к камере');}
+}
+function createCameraElement(stream){
+  let div = document.createElement('div');
+  div.className='camera';
+  let video = document.createElement('video');
+  video.srcObject = stream;
+  video.autoplay = true;
+  let removeBtn = document.createElement('button');
+  removeBtn.textContent='X';
+  removeBtn.className='remove-btn';
+  removeBtn.onclick=()=>{
+    stream.getTracks().forEach(t=>t.stop());
+    div.remove();
+    logMessage("Камера удалена");
+  };
+  let aiBtn = document.createElement('button');
+  aiBtn.textContent='ИИ';
+  aiBtn.className='ai-btn';
+  aiBtn.onclick=()=>{
+    let model = prompt("Выберите модель:", models.join(", "));
+    if(model) logMessage(`ИИ анализ с моделью: ${model}`);
+  };
+  div.appendChild(video);
+  div.appendChild(removeBtn);
+  div.appendChild(aiBtn);
+  document.getElementById('cameraContainer').appendChild(div);
+  cameras.push({stream, element:div});
+}
+function restartCameras(){
+  document.getElementById('cameraContainer').innerHTML='';
+  let oldCams = [...cameras];
+  cameras = [];
+  oldCams.forEach(()=>addCamera());
+  logMessage("Камеры перезапущены");
+}
+function scanNetwork(){
+  logMessage('Сканирование сети IP камер (имитация)');
+}
+function addIPCamera(){
+  let url = document.getElementById('ipCamUrl').value;
+  logMessage('Подключение к IP камере: '+url);
+}
+function uploadModel(){
+  let name = prompt("Введите название модели");
+  if(name){models.push(name); updateModelList(); logMessage("Модель загружена: "+name);}
+}
+function updateModelList(){
+  let select = document.getElementById('globalModel');
+  select.innerHTML = models.map(m=>`<option>${m}</option>`).join('');
+}
+updateModelList();
+async function saveToIPFS(){
+  const { createHelia } = await import('https://unpkg.com/helia/dist/index.min.js');
+  const { unixfs } = await import('https://unpkg.com/@helia/unixfs/dist/index.min.js');
+  const helia = await createHelia();
+  const fs = unixfs(helia);
+  const text = new TextEncoder().encode('Данные для сохранения');
+  const cid = await fs.addFile({content:text});
+  localStorage.setItem('lastIPFSCID', cid.toString());
+  logMessage('Сохранено в IPFS: '+cid);
+}
+</script>
+</body>
+</html>
