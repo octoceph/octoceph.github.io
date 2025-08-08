@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>OctoCore — Single-file Prototype</title>
+
+<!-- === CDN: обязательные библиотеки (точные версии из ТЗ) === -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/cobalt.min.css">
+
+<!-- TensorFlow.js и MobileNet -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+
+<!-- ONNX runtime -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+<!-- ffmpeg.wasm -->
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.1/dist/ffmpeg.min.js"></script>
+
+<!-- ipfs-http-client -->
+<script src="https://unpkg.com/ipfs-http-client/dist/index.min.js"></script>
+
+<!-- web3.storage (альтернатива) - не обязательно -->
+<script src="https://cdn.jsdelivr.net/npm/web3.storage/dist/bundle.esm.min.js"></script>
+
+<!-- CodeMirror -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+
+<style>
+/* === БАЗОВАЯ СТИЛИСТИКА === */
+:root{
+  --sidebar-w:320px;
+  --accent:#0ea5a4;
+  --bg:#0f1724;
+  --panel:#0b1220;
+  --muted:#9aa4b2;
+  --glass: rgba(255,255,255,0.03);
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,#071022 0%, #04101a 100%); font-family: Inter, ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+.app{
+  display:flex;
+  min-height:100vh;
+  color:#dbe7ef;
+}
+/* Сайдбар слева фиксированный */
+.sidebar{
+  width:var(--sidebar-w);
+  background:var(--panel);
+  padding:12px;
+  position:relative;
+  transition: transform .25s ease;
+  z-index:10;
+}
+.sidebar.collapsed{ transform: translateX(calc(-1*var(--sidebar-w))); }
+/* Хедер */
+.header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+.brand{font-weight:700; font-size:1.05rem; display:flex; gap:8px; align-items:center;}
+.btn{background:var(--glass); border:1px solid rgba(255,255,255,0.03); color:inherit; padding:6px 8px; border-radius:8px; cursor:pointer;}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+.row{display:flex; gap:8px; align-items:center;}
+.menu-section{margin-top:12px;}
+.small{font-size:0.85rem; color:var(--muted);}
+
+/* Main content */
+.main{
+  flex:1;
+  padding:12px;
+  overflow:auto;
+}
+.controls{display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;}
+.grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
+  gap:12px;
+  max-width:100vw;
+}
+
+/* Камера карточка */
+.card{
+  background:rgba(255,255,255,0.02);
+  border-radius:8px;
+  padding:8px;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  height:260px;
+}
+.card video{width:100%; height:160px; object-fit:cover; border-radius:6px; background:#000;}
+.card .card-footer{display:flex; justify-content:space-between; align-items:center; margin-top:8px;}
+.card .controls{gap:6px;}
+.icon-btn{background:rgba(255,255,255,0.02); border-radius:6px; padding:6px; cursor:pointer; border:1px solid rgba(255,255,255,0.03); display:inline-flex; align-items:center; justify-content:center;}
+.icon-btn.small{padding:4px;}
+
+/* overlay canvas for AI */
+.overlay{ position:absolute; left:8px; top:8px; pointer-events:none; }
+
+/* Галереи и таймлапсы */
+.tabs{ display:flex; gap:8px; margin-bottom:12px;}
+.tab{padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.02); cursor:pointer;}
+.tab.active{background:linear-gradient(90deg,var(--accent), #0b86ae);}
+
+/* modal */
+.modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:30;}
+.modal{background:#071223; padding:12px; border-radius:10px; width:90%; max-width:900px; max-height:80vh; overflow:auto; border:1px solid rgba(255,255,255,0.04);}
+.modal.show{display:flex;}
+.spinner{
+  width:16px; height:16px; border-radius:50%; border:3px solid rgba(255,255,255,0.08); border-top-color:var(--accent); animation:spin 1s linear infinite; display:inline-block; vertical-align:middle;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Logs */
+.logs{height:160px; overflow:auto; background:rgba(255,255,255,0.02); padding:8px; border-radius:6px; font-family:monospace; font-size:12px;}
+.footer{margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:space-between;}
+
+/* CodeMirror inside sidebar */
+.cm-wrapper{margin-top:10px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.03);}
+
+/* responsive adjustments */
+@media (max-width:900px){
+  .sidebar{ position:fixed; left:0; top:0; bottom:0; z-index:40; }
+  .main{ padding:12px 8px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="header">
+      <div class="brand"><i class="fa-solid fa-octagon"></i> OctoCore</div>
+      <div class="row">
+        <button class="btn" id="toggleSidebar"><i class="fa-solid fa-chevron-left"></i></button>
+      </div>
+    </div>
+
+    <div class="menu-section">
+      <div class="small">Камеры</div>
+      <div style="margin-top:8px" class="row">
+        <button class="btn" id="addWebcamBtn"><i class="fa-solid fa-camera"></i> Добавить веб-камеру</button>
+        <button class="btn" id="restartAllBtn" title="Перезапустить все камеры"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+      <div style="margin-top:8px" class="row">
+        <input id="ipCamUrl" placeholder="IP/RTSP URL (rtsp://...)" style="flex:1; padding:6px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04)" />
+        <button class="btn" id="addIpCamBtn" title="Добавить IP-камеру"><i class="fa-solid fa-network-wired"></i></button>
+      </div>
+      <div style="margin-top:8px" class="row">
+        <button class="btn" id="scanBtn"><i class="fa-solid fa-magnifying-glass"></i> Scan</button>
+        <div class="small" style="margin-left:8px">Поиск IP камер (кнопка демонстрационная)</div>
+      </div>
+    </div>
+
+    <div class="menu-section">
+      <div class="small">ИИ / Модели</div>
+      <div style="margin-top:8px" class="row">
+        <select id="modelSelect" style="flex:1; padding:6px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04)">
+          <option value="">(Нет модели)</option>
+          <option value="sobel">Sobel (tfjs)</option>
+          <option value="mobilenet">MobileNet (tfjs)</option>
+          <option value="onnx">ONNX (onnxruntime-web)</option>
+        </select>
+        <button class="btn" id="loadModelBtn"><i class="fa-solid fa-download"></i></button>
+      </div>
+      <div class="small" style="margin-top:8px">MobileNet предварительно грузим при старте (не блокирует UI)</div>
+    </div>
+
+    <div class="menu-section">
+      <div class="small">IDE и логи</div>
+      <div class="cm-wrapper">
+        <textarea id="codeEditor" style="height:160px"></textarea>
+      </div>
+      <div style="margin-top:8px" class="row">
+        <select id="codeMode">
+          <option value="javascript">JS</option>
+          <option value="python">Python</option>
+        </select>
+        <button class="btn" id="runCodeBtn">Run</button>
+        <button class="btn" id="applyToModels"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+      </div>
+      <div style="margin-top:8px">
+        <div class="small">Логи</div>
+        <div class="logs" id="logs"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="small">CID Manager</div>
+      <div class="row">
+        <button class="btn" id="openCidManagerBtn"><i class="fa-solid fa-database"></i></button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="controls">
+      <div class="tabs" id="tabs">
+        <div class="tab active" data-tab="dashboard">Dashboard</div>
+        <div class="tab" data-tab="galleries">Galleries</div>
+        <div class="tab" data-tab="timelapses">Timelapses</div>
+      </div>
+      <div style="flex:1" class="small">Интерфейс прототипа: добавляйте веб-камеры, делайте снимки, применяйте AI и сохраняйте в IPFS.</div>
+    </div>
+
+    <section id="dashboard" class="view">
+      <div class="grid" id="cameraGrid" aria-live="polite">
+        <!-- карточки камер добавляются динамически -->
+      </div>
+    </section>
+
+    <section id="galleries" class="view" style="display:none">
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+        <button class="btn" id="createGalleryBtn">Создать галерею</button>
+        <button class="btn" id="loadFromIpfsBtn">Загрузить из IPFS (CID)</button>
+      </div>
+      <div id="galleriesContainer"></div>
+    </section>
+
+    <section id="timelapses" class="view" style="display:none">
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+        <div class="small">Созданные таймлапсы</div>
+      </div>
+      <div id="timelapseContainer"></div>
+    </section>
+  </main>
+</div>
+
+<!-- modal: CID manager -->
+<div class="modal-backdrop" id="cidModal">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>CID Manager</h3>
+    <div id="cidList"></div>
+    <div style="margin-top:12px" class="row">
+      <input id="newCidNote" placeholder="Заметка" style="flex:1; padding:6px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04)" />
+      <input id="newCidInput" placeholder="CID (ipfs...)" style="flex:1; padding:6px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04)" />
+      <button class="btn" id="addCidBtn">Добавить</button>
+    </div>
+    <div style="margin-top:12px" class="row"">
+      <button class="btn" id="closeCidModal">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal: MobileNet preds -->
+<div class="modal-backdrop" id="predModal"><div class="modal"><h3>Предсказания</h3><div id="preds"></div><div style="margin-top:12px" class="row"><button class="btn" id="closePreds">Закрыть</button></div></div></div>
+
+<!-- Hidden elements for canvas ops -->
+<canvas id="hiddenCanvas" width="640" height="480" style="display:none"></canvas>
+
+<script>
+/*
+  ========== OctoCore single-file: модульный JS (в одном файле) ==========
+  Основные модули/объекты: state, ui, cameraManager, aiManager, storageManager, pluginManager, ffmpegHelper, ide
+  Комментарии на русском у каждой ключевой функции.
+*/
+
+/* ========================= GLOBAL STATE ========================= */
+const state = {
+  cameras: [], // {id, type: 'web'|'ip', stream, videoEl, recorder, chunks, intervalId, intervalSec, overlayCanvas, modelName}
+  galleries: [], // {id, name, frames: [{blob, ts, cid?}]}
+  timelapses: [], // {id, name, blob, ts}
+  models: { mobileNet: null, onnxSession: null, loaded: {} },
+  ipfsClient: null,
+  plugins: {},
+  ideApplyToModels: false
+};
+
+/* ========================= UTIL / LOGS ========================= */
+const logEl = document.getElementById('logs');
+function log(...args){
+  const line = document.createElement('div');
+  const time = new Date().toLocaleTimeString();
+  line.textContent = `[${time}] ${args.map(a=>typeof a==='string'?a:JSON.stringify(a)).join(' ')}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+  console.log(...args);
+}
+
+/* ========================= UI / ROUTING ========================= */
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(t=>t.addEventListener('click', ()=> {
+  tabs.forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.style.display='none');
+  document.getElementById(t.dataset.tab).style.display='block';
+}));
+
+document.getElementById('toggleSidebar').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.toggle('collapsed');
+});
+
+document.getElementById('addWebcamBtn').addEventListener('click', async ()=>{
+  await cameraManager.addWebcam();
+});
+
+document.getElementById('restartAllBtn').addEventListener('click', async ()=>{
+  await cameraManager.restartAll();
+});
+
+document.getElementById('addIpCamBtn').addEventListener('click', async ()=>{
+  const url = document.getElementById('ipCamUrl').value.trim();
+  if(!url){ alert('Введите URL IP-камеры'); return; }
+  await cameraManager.addIpCamPlaceholder(url);
+});
+
+document.getElementById('scanBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  // кнопка демонстрационная: блокирует на 4 секунды, показывает spinner
+  if(btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> Сканирование...';
+  log('Запущен демонстрационный скан (4s)');
+  setTimeout(()=> {
+    btn.innerHTML = original;
+    btn.disabled = false;
+    log('Скан завершён (демо)');
+    alert('Демо: найдено 0 устройств (браузер не поддерживает SSDP/UPnP напрямую). См. server-example для реального поиска.');
+  }, 4000); // строго 4 секунды
+});
+
+/* ========================= CodeMirror IDE ========================= */
+let codeMirrorInstance = null;
+let pyodide = null;
+(function initIDE(){
+  const ta = document.getElementById('codeEditor');
+  ta.value = `// Пример: логировать кадр из первой камеры (если есть)
+if (cameras.length>0){
+  const cam = cameras[0];
+  console.log('snapshot ts:', Date.now());
+}`;
+  codeMirrorInstance = CodeMirror.fromTextArea(ta, {mode:'javascript', theme:'cobalt', lineNumbers:true});
+  document.getElementById('runCodeBtn').addEventListener('click', async ()=>{
+    const mode = document.getElementById('codeMode').value;
+    const code = codeMirrorInstance.getValue();
+    if(mode==='javascript'){
+      try{
+        // sandboxed function; предоставляем доступ к части состояния
+        const fn = new Function('cameras','state','log','tf','runAI','registerPlugin','return (async ()=>{'+code+'})()');
+        await fn(state.cameras, state, log, tf, aiManager.runAIOnCanvas, pluginManager.registerAnalyzer);
+      }catch(err){
+        log('Ошибка выполнения JS:', err.message);
+        alert('Ошибка JS: '+err.message);
+      }
+    } else {
+      // Python via Pyodide (ленивая загрузка)
+      if(!pyodide){
+        log('Загрузка Pyodide (лениво)...');
+        try{
+          document.getElementById('runCodeBtn').disabled = true;
+          pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'});
+          document.getElementById('runCodeBtn').disabled = false;
+          log('Pyodide загружен');
+        }catch(err){
+          document.getElementById('runCodeBtn').disabled = false;
+          log('Ошибка загрузки Pyodide:', err);
+          alert('Не удалось загрузить Pyodide: '+err.message);
+          return;
+        }
+      }
+      try{
+        await pyodide.runPythonAsync(code);
+      }catch(err){
+        log('Ошибка Python:', err);
+        alert('Ошибка Python: '+err.message);
+      }
+    }
+  });
+  document.getElementById('applyToModels').addEventListener('click', ()=>{
+    state.ideApplyToModels = !state.ideApplyToModels;
+    document.getElementById('applyToModels').classList.toggle('active', state.ideApplyToModels);
+    log('IDE apply to models:', state.ideApplyToModels);
+  });
+})();
+
+/* ========================= Camera Manager ========================= */
+const cameraGrid = document.getElementById('cameraGrid');
+
+const cameraManager = {
+  idCounter: 1,
+  async enumerateDevices(){
+    try{
+      const devices = await navigator.mediaDevices.enumerateDevices(); // обязателен
+      log('enumerateDevices:', devices.length);
+      return devices;
+    }catch(err){
+      log('enumerateDevices error', err);
+      return [];
+    }
+  },
+
+  // Добавить веб-камеру и карточку
+  async addWebcam(){
+    const id = `cam_${this.idCounter++}`;
+    try{
+      // Запрос разрешения и получение потока
+      const stream = await navigator.mediaDevices.getUserMedia({video:true}); // обязателен
+      // Создаем элементы UI
+      const card = createCameraCard(id,'web');
+      const video = card.querySelector('video');
+      video.srcObject = stream; // video.srcObject = stream; video.play();
+      await video.play().catch(()=>{ /* autoplay may be blocked */ });
+      // По стандарту: сохранить поток
+      const camObj = {
+        id, type:'web', stream, videoEl: video, card, recorder: null, chunks: [], intervalId:null, intervalSec:5, overlayCanvas: createOverlayCanvas(video)
+      };
+      state.cameras.push(camObj);
+      cameraGrid.appendChild(card);
+      setupCardControls(camObj);
+      log(`Webcam добавлена: ${id}`);
+    }catch(err){
+      log('getUserMedia error:', err);
+      alert('Ошибка доступа к веб-камере: '+err.message);
+    }
+  },
+
+  // Добавление IP-камеры — в браузере часто невозможна (RTSP/CORS). Создаём placeholder с теми же контролами.
+  async addIpCamPlaceholder(url){
+    const id = `icam_${this.idCounter++}`;
+    const card = createCameraCard(id,'ip', url);
+    const video = card.querySelector('video');
+    // Попробуем сделать fetch как пример для snapshot (если CORS разрешён)
+    card.querySelector('.small-url').textContent = url;
+    cameraGrid.appendChild(card);
+    const camObj = {
+      id, type:'ip', url, stream:null, videoEl: video, card, recorder:null, chunks:[], intervalId:null, intervalSec:5, overlayCanvas:createOverlayCanvas(video)
+    };
+    state.cameras.push(camObj);
+    setupCardControls(camObj);
+    log('IP-cam placeholder добавлена. Прямая playback в браузере может не работать из-за CORS/RTSP');
+  },
+
+  async restartAll(){
+    log('Перезапуск всех камер: остановка и повторный запрос getUserMedia для веб-камер');
+    // Копируем массив чтобы избежать модификаций при итерации
+    const cams = [...state.cameras];
+    for(const cam of cams){
+      try{
+        // остановим
+        stopCamera(cam);
+        // для вебкамер перезапросим
+        if(cam.type === 'web'){
+          const stream = await navigator.mediaDevices.getUserMedia({video:true}); // повторный запрос
+          cam.stream = stream;
+          const v = cam.videoEl;
+          v.srcObject = stream;
+          await v.play().catch(()=>{});
+        } else {
+          // IP placeholders: ничего не делаем
+        }
+      }catch(err){
+        log('Ошибка при перезапуске:', err);
+      }
+    }
+    log('Перезапуск завершён');
+  }
+};
+
+/* Helper: создание overlay canvas */
+function createOverlayCanvas(videoEl){
+  const c = document.createElement('canvas');
+  c.width = videoEl.clientWidth || 640;
+  c.height = videoEl.clientHeight || 360;
+  c.className = 'overlay';
+  c.style.width = '100%';
+  c.style.height = '160px';
+  videoEl.parentElement.appendChild(c);
+  return c;
+}
+
+/* Helper: create camera card UI */
+function createCameraCard(id,type,url=''){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = id;
+  const topRight = document.createElement('div');
+  topRight.style.position='absolute'; topRight.style.right='8px'; topRight.style.top='8px';
+  topRight.innerHTML = `<button class="icon-btn small delBtn" title="Удалить"><i class="fa-solid fa-trash"></i></button>`;
+  card.appendChild(topRight);
+
+  const video = document.createElement('video');
+  video.setAttribute('playsinline','');
+  video.muted = true;
+  card.appendChild(video);
+
+  const footer = document.createElement('div');
+  footer.className = 'card-footer';
+  const left = document.createElement('div');
+  left.className = 'controls';
+  left.innerHTML = `
+    <button class="icon-btn snapBtn" title="Снимок"><i class="fa-solid fa-camera"></i></button>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <select class="modelSelectSmall">
+        <option value="">ИИ</option>
+        <option value="sobel">Sobel</option>
+        <option value="mobilenet">MobileNet</option>
+        <option value="onnx">ONNX</option>
+      </select>
+    </div>
+    <button class="icon-btn recBtn" title="Запись"><i class="fa-solid fa-circle"></i></button>
+  `;
+  const right = document.createElement('div');
+  right.innerHTML = `
+    <div class="small small-url" style="max-width:120px; overflow:hidden; text-overflow:ellipsis">${type==='ip'?url:''}</div>
+    <div style="margin-top:6px; display:flex; gap:6px; align-items:center;">
+      <input type="number" class="intervalInput" min="1" value="5" style="width:60px; padding:4px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04)"/>
+      <button class="btn restartCamBtn" title="Перезапустить камеру"><i class="fa-solid fa-rotate"></i></button>
+    </div>
+  `;
+  footer.appendChild(left);
+  footer.appendChild(right);
+  card.appendChild(footer);
+  return card;
+}
+
+/* Setup controls for card (snap, rec, delete) */
+function setupCardControls(camObj){
+  const card = camObj.card;
+  const snapBtn = card.querySelector('.snapBtn');
+  const delBtn = card.querySelector('.delBtn');
+  const recBtn = card.querySelector('.recBtn');
+  const intervalInput = card.querySelector('.intervalInput');
+  const modelSelectSmall = card.querySelector('.modelSelectSmall');
+  const restartCamBtn = card.querySelector('.restartCamBtn');
+
+  intervalInput.value = camObj.intervalSec || 5;
+  intervalInput.addEventListener('change', ()=> {
+    camObj.intervalSec = Number(intervalInput.value) || 5;
+  });
+
+  snapBtn.addEventListener('click', async ()=>{
+    // Если задан интервал >0 — переключаемся в interval режим
+    const interval = camObj.intervalSec;
+    if(interval>0 && !camObj.intervalId){
+      log(`Запуск interval-снимков для ${camObj.id} каждые ${interval}s`);
+      camObj.intervalId = setInterval(()=> takeSnapshot(camObj), interval*1000);
+    } else {
+      await takeSnapshot(camObj);
+    }
+  });
+
+  delBtn.addEventListener('click', async ()=>{
+    // Удаляем камеру: остановить intervals/MediaRecorder/stream tracks и удалить из DOM и state
+    stopCamera(camObj);
+    camObj.card.remove();
+    state.cameras = state.cameras.filter(c=>c.id!==camObj.id);
+    log('Камера удалена:', camObj.id);
+  });
+
+  recBtn.addEventListener('click', async ()=>{
+    // Запись: MediaRecorder(stream, {mimeType:'video/webm'})
+    if(camObj.recorder && camObj.recorder.state === 'recording'){
+      camObj.recorder.stop();
+      recBtn.innerHTML = '<i class="fa-solid fa-circle"></i>';
+    } else {
+      if(!camObj.stream){
+        alert('Нет потока для записи');
+        return;
+      }
+      camObj.chunks = [];
+      try{
+        const options = {mimeType:'video/webm'}; // обязательно
+        const recorder = new MediaRecorder(camObj.stream, options); // MediaRecorder(stream, {mimeType:'video/webm'})
+        recorder.ondataavailable = e => { if(e.data && e.data.size>0) camObj.chunks.push(e.data); }; // recorder.ondataavailable = e => chunks.push(e.data)
+        recorder.onstop = async ()=>{
+          const blob = new Blob(camObj.chunks, {type:'video/webm'});
+          // Добавить в локальную галерею как таймлапс/видео
+          addTimelapseFromBlob(blob, camObj.id);
+          log('Запись завершена, blob size:', blob.size);
+        };
+        recorder.start();
+        camObj.recorder = recorder;
+        recBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+        log('Запись начата для', camObj.id);
+      }catch(err){
+        log('Ошибка MediaRecorder:', err);
+        alert('Ошибка записи: '+err.message);
+      }
+    }
+  });
+
+  restartCamBtn.addEventListener('click', async ()=>{
+    try{
+      stopCamera(camObj);
+      if(camObj.type==='web'){
+        const stream = await navigator.mediaDevices.getUserMedia({video:true});
+        camObj.stream = stream;
+        camObj.videoEl.srcObject = stream;
+        await camObj.videoEl.play().catch(()=>{});
+      }
+      log('Камера перезапущена', camObj.id);
+    }catch(err){
+      log('Ошибка перезапуска камеры', err);
+    }
+  });
+
+  modelSelectSmall.addEventListener('change', ()=> {
+    camObj.modelName = modelSelectSmall.value || '';
+  });
+
+  // Если это IP placeholder — попробовать сделать fetch snapshot если CORS разрешён
+  if(camObj.type==='ip' && camObj.url){
+    card.querySelector('.small-url').addEventListener('click', async ()=>{
+      try{
+        const res = await fetch(camObj.url, {mode:'cors'}); // fetch(url, {mode:'cors'})
+        if(!res.ok) throw new Error('Не удалось получить изображение: '+res.status);
+        const blob = await res.blob();
+        const imgUrl = URL.createObjectURL(blob);
+        camObj.videoEl.poster = imgUrl;
+        log('Fetched image from IP cam URL');
+      }catch(err){
+        log('fetch IP camera error:', err);
+        alert('Невозможно получить кадр напрямую (CORS/RTSP). См. server-example для proxy.');
+      }
+    });
+  }
+}
+
+/* takeSnapshot: рисуем в canvas и сохраняем blob */
+async function takeSnapshot(camObj){
+  const video = camObj.videoEl;
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 480;
+  const canvas = document.getElementById('hiddenCanvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  try{
+    ctx.drawImage(video, 0, 0, w, h); // canvas.getContext('2d').drawImage(video, 0,0, w,h)
+  }catch(err){
+    log('drawImage error:', err);
+    return;
+  }
+  // Создаем blob
+  canvas.toBlob(async (blob)=>{
+    if(!blob) { log('toBlob вернул null'); return; }
+    // Добавляем в текущ галерею (создаём первую галерею автоматом если нет)
+    if(state.galleries.length===0){
+      const g = {id:'gallery_1', name:'Default', frames:[]};
+      state.galleries.push(g);
+      renderGalleries();
+    }
+    state.galleries[0].frames.push({blob, ts:Date.now()});
+    renderGalleries();
+    log('Снимок сохранён в галерею, size:', blob.size);
+    // Если у камеры выбрана модель — применим
+    if(camObj.modelName){
+      // runAIAnalysisOnCanvas using the same canvas element
+      await aiManager.runAIOnCanvas(canvas, camObj.modelName, camObj.overlayCanvas);
+    }
+  }, 'image/jpeg', 0.9); // canvas.toBlob(...)
+}
+
+/* stopCamera: остановить записи/interval/tracks */
+function stopCamera(camObj){
+  try{
+    if(camObj.intervalId) { clearInterval(camObj.intervalId); camObj.intervalId = null; }
+    if(camObj.recorder && camObj.recorder.state === 'recording'){ camObj.recorder.stop(); }
+    if(camObj.stream){
+      camObj.stream.getTracks().forEach(t=>t.stop()); // stream.getTracks().forEach(t=>t.stop())
+      camObj.stream = null;
+    }
+    // очистить overlay
+    if(camObj.overlayCanvas){
+      const ctx = camObj.overlayCanvas.getContext('2d');
+      ctx.clearRect(0,0, camObj.overlayCanvas.width, camObj.overlayCanvas.height);
+    }
+  }catch(err){
+    console.warn('stopCamera error', err);
+  }
+}
+
+/* ========================= GALLERIES / TIMELAPSE ========================= */
+const galleriesContainer = document.getElementById('galleriesContainer');
+function renderGalleries(){
+  galleriesContainer.innerHTML = '';
+  for(const g of state.galleries){
+    const box = document.createElement('div');
+    box.style.marginBottom='12px';
+    box.innerHTML = `<h4>${g.name} <small>(${g.frames.length} кадров)</small></h4>`;
+    const line = document.createElement('div');
+    line.style.display='flex'; line.style.gap='8px'; line.style.flexWrap='wrap';
+    for(let i=0;i<g.frames.length;i++){
+      const fr = g.frames[i];
+      const url = URL.createObjectURL(fr.blob);
+      const thumb = document.createElement('div');
+      thumb.style.width='160px'; thumb.style.borderRadius='6px'; thumb.style.overflow='hidden'; thumb.style.background='#000';
+      thumb.innerHTML = `<div style="position:relative">
+        <img src="${url}" style="width:100%; display:block"/>
+        <div style="position:absolute; left:6px; top:6px;">
+          <input type="checkbox" data-gallery="${g.id}" data-idx="${i}" class="frameCheckbox"/>
+        </div>
+      </div>`;
+      line.appendChild(thumb);
+    }
+    const actions = document.createElement('div');
+    actions.style.marginTop='8px';
+    actions.innerHTML = `<button class="btn selectAll">Выбрать все</button>
+      <button class="btn deselectAll">Снять выбор</button>
+      <button class="btn deleteSelected">Удалить выбранные</button>
+      <button class="btn sendIpfs">Отправить выбранные в IPFS</button>
+      <button class="btn makeTimelapse">Создать таймлапс</button>`;
+    box.appendChild(line);
+    box.appendChild(actions);
+    galleriesContainer.appendChild(box);
+
+    // handlers
+    actions.querySelector('.selectAll').addEventListener('click', ()=> {
+      box.querySelectorAll('.frameCheckbox').forEach(ch=>ch.checked=true);
+    });
+    actions.querySelector('.deselectAll').addEventListener('click', ()=> {
+      box.querySelectorAll('.frameCheckbox').forEach(ch=>ch.checked=false);
+    });
+    actions.querySelector('.deleteSelected').addEventListener('click', ()=> {
+      const checked = Array.from(box.querySelectorAll('.frameCheckbox')).filter(c=>c.checked);
+      const idxs = checked.map(c=>Number(c.dataset.idx)).sort((a,b)=>b-a);
+      for(const idx of idxs){ g.frames.splice(idx,1); }
+      renderGalleries();
+      log('Удалены выбранные кадры');
+    });
+    actions.querySelector('.sendIpfs').addEventListener('click', async ()=> {
+      const checked = Array.from(box.querySelectorAll('.frameCheckbox')).filter(c=>c.checked);
+      if(checked.length===0){ alert('Выберите кадры'); return; }
+      for(const ch of checked){
+        const idx = Number(ch.dataset.idx);
+        const fr = g.frames[idx];
+        await storageManager.saveBlobToIpfs(fr.blob, `gallery_${g.id}_${idx}.jpg`);
+      }
+      renderCidList();
+    });
+    actions.querySelector('.makeTimelapse').addEventListener('click', async ()=>{
+      const checked = Array.from(box.querySelectorAll('.frameCheckbox')).filter(c=>c.checked);
+      if(checked.length===0) { alert('Выберите кадры для таймлапса'); return; }
+      // Собираем Blobs в видео: воспользуемся canvas.captureStream() approach
+      const imgs = checked.map(c=> g.frames[Number(c.dataset.idx)].blob);
+      await makeTimelapseFromImages(imgs, `timelapse_${g.id}_${Date.now()}`);
+    });
+  }
+}
+
+/* Добавить timelapse из Blob (например, MediaRecorder output) */
+function addTimelapseFromBlob(blob, name){
+  const item = {id:'tl_'+(state.timelapses.length+1), name: name||'timelapse', blob, ts:Date.now()};
+  state.timelapses.push(item);
+  renderTimelapses();
+}
+
+/* Создать таймлапс из массива изображений (Blobs) используя canvas.captureStream() */
+async function makeTimelapseFromImages(imageBlobs, name){
+  // Создаём временный canvas и рисуем каждый кадр с паузой, захватываем stream
+  const canvas = document.createElement('canvas');
+  const img = new Image();
+  const firstBlob = imageBlobs[0];
+  const url = URL.createObjectURL(firstBlob);
+  await new Promise((res,rej)=>{ img.onload = ()=>{ res(); }; img.onerror=rej; img.src=url; });
+  canvas.width = img.naturalWidth || 640;
+  canvas.height = img.naturalHeight || 480;
+  const ctx = canvas.getContext('2d');
+  const stream = canvas.captureStream(10); // canvas.captureStream()
+  const recorder = new MediaRecorder(stream, {mimeType:'video/webm'});
+  const chunks = [];
+  recorder.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+  recorder.start();
+  // Проигрываем кадры
+  for(const b of imageBlobs){
+    const u = URL.createObjectURL(b);
+    await new Promise((res,rej)=>{
+      const i = new Image();
+      i.onload = ()=>{
+        ctx.drawImage(i,0,0,canvas.width,canvas.height);
+        setTimeout(()=> { URL.revokeObjectURL(u); res(); }, 200); // 200ms per frame
+      };
+      i.onerror = rej;
+      i.src = u;
+    });
+  }
+  recorder.stop();
+  await new Promise(r => recorder.onstop = r);
+  const outBlob = new Blob(chunks, {type:'video/webm'});
+  addTimelapseFromBlob(outBlob, name);
+  log('Таймлапс создан, size:', outBlob.size);
+}
+
+/* Render timelapses */
+function renderTimelapses(){
+  const c = document.getElementById('timelapseContainer');
+  c.innerHTML = '';
+  for(const t of state.timelapses){
+    const el = document.createElement('div');
+    el.style.marginBottom='12px';
+    const url = URL.createObjectURL(t.blob);
+    el.innerHTML = `<h4>${t.name}</h4><video controls src="${url}" style="max-width:100%"></video>`;
+    c.appendChild(el);
+  }
+}
+
+/* ========================= AI Manager (tfjs, mobilenet, sobel, onnx) ========================= */
+const aiManager = {
+  // Предзагрузим MobileNet при старте (не блокируя UI)
+  async preloadMobileNet(){
+    (async ()=>{
+      try{
+        log('Предзагрузка MobileNet...');
+        state.models.mobileNet = await mobilenet.load(); // mobilenet.load()
+        state.models.loaded.mobilenet = true;
+        log('MobileNet загружен');
+      }catch(err){
+        log('Ошибка загрузки MobileNet:', err);
+      }
+    })();
+  },
+
+  async loadOnnxModel(url){
+    try{
+      const session = await ort.InferenceSession.create(url); // ort.InferenceSession.create('model.onnx')
+      state.models.onnxSession = session;
+      state.models.loaded.onnx = true;
+      log('ONNX модель загружена');
+    }catch(err){
+      log('Ошибка загрузки ONNX:', err);
+      alert('Ошибка загрузки ONNX: '+err.message);
+    }
+  },
+
+  // Запуск анализа на canvas
+  async runAIOnCanvas(canvas, modelName, overlayCanvas){
+    return this.runAIAnalysisOnCanvas(canvas, modelName, overlayCanvas);
+  },
+
+  // runAIAnalysisOnCanvas реализует Sobel и MobileNet и вызывает overlay рисование
+  async runAIAnalysisOnCanvas(canvas, modelName, overlayCanvas){
+    try{
+      if(modelName === 'sobel'){
+        await this.runSobel(canvas, overlayCanvas);
+      } else if(modelName === 'mobilenet'){
+        if(!state.models.mobileNet){ alert('MobileNet ещё не загружен. Подождите.'); return; }
+        const preds = await state.models.mobileNet.classify(canvas); // const preds = await net.classify(canvas);
+        // Показать предсказания в modal
+        showPredictions(preds);
+      } else if(modelName === 'onnx'){
+        if(!state.models.onnxSession){ alert('ONNX модель не загружена'); return; }
+        // Демонстрация: преобразуем canvas в tensor и запустим onnx session
+        // Примерный код (детали зависят от конкретной модели)
+        const imgData = canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height);
+        const floats = float32FromImageData(imgData);
+        const tensor = new ort.Tensor('float32', floats, [1,3,canvas.height,canvas.width]);
+        const outputs = await state.models.onnxSession.run({ input: tensor }); // session.run({ inputName: tensor });
+        log('ONNX outputs', outputs);
+      } else {
+        log('Модель не поддержана:', modelName);
+      }
+    }catch(err){
+      log('Ошибка AI:', err);
+      alert('Ошибка AI: '+err.message);
+    }
+  },
+
+  // Sobel: tf.browser.fromPixels(canvas) → mean(2) → tf.conv2d with kernel from tf.tensor2d([...],[3,3]).reshape([3,3,1,1])
+  async runSobel(canvas, overlayCanvas){
+    try{
+      await tf.ready();
+      tf.tidy(()=>{
+        const img = tf.browser.fromPixels(canvas); // tf.browser.fromPixels(canvas)
+        // Преобразуем в серую 2D среднюю по channel
+        const gray = img.mean(2).expandDims(2); // mean(2)
+        const input = gray.expandDims(0).toFloat(); // [1,H,W,1]
+        // Создаём ядра Sobel (пример)
+        const kx = tf.tensor2d([[-1,0,1],[-2,0,2],[-1,0,1]],[3,3]).reshape([3,3,1,1]); // tensor2d(...).reshape([3,3,1,1])
+        const ky = tf.tensor2d([[-1,-2,-1],[0,0,0],[1,2,1]],[3,3]).reshape([3,3,1,1]);
+        const gx = tf.conv2d(input, kx, 1, 'same');
+        const gy = tf.conv2d(input, ky, 1, 'same');
+        const mag = gx.abs().add(gy.abs()).squeeze(); // [H,W]
+        // Normalize and draw to overlay
+        const nm = mag.div(mag.max().add(1e-6)).mul(255).toInt();
+        const arr = nm.dataSync(); // вытянуть данные для ImageData
+        // Создать ImageData и нарисовать на overlayCanvas
+        const w = canvas.width, h = canvas.height;
+        const ctx = overlayCanvas.getContext('2d');
+        overlayCanvas.width = w; overlayCanvas.height = h;
+        const imgData = ctx.createImageData(w,h);
+        for(let i=0;i<arr.length;i++){
+          const v = arr[i];
+          imgData.data[i*4+0] = v;
+          imgData.data[i*4+1] = v;
+          imgData.data[i*4+2] = v;
+          imgData.data[i*4+3] = 255;
+        }
+        ctx.putImageData(imgData, 0,0);
+      }); // tf.tidy -> очистит intermediate тензоры
+      log('Sobel overlay applied');
+    }catch(err){
+      log('Sobel error:', err);
+    }
+  }
+};
+
+/* helper: convert ImageData to float32 array for ONNX example */
+function float32FromImageData(imgData){
+  const {data, width, height} = imgData;
+  // Нормируем в 0..1 и меняем порядок каналов если нужно
+  const floats = new Float32Array(3*width*height);
+  for(let i=0;i<width*height;i++){
+    floats[i] = data[i*4]/255; // R
+    floats[width*height + i] = data[i*4+1]/255; // G
+    floats[2*width*height + i] = data[i*4+2]/255; // B
+  }
+  return floats;
+}
+
+/* showPrediction modal */
+function showPredictions(preds){
+  const m = document.getElementById('predModal');
+  const p = document.getElementById('preds');
+  p.innerHTML = '';
+  preds.forEach(pr=>{
+    const el = document.createElement('div');
+    el.innerHTML = `${pr.className} — ${(pr.probability*100).toFixed(2)}%`;
+    p.appendChild(el);
+  });
+  m.classList.add('show'); m.style.display='flex';
+}
+document.getElementById('closePreds').addEventListener('click', ()=>{ document.getElementById('predModal').classList.remove('show'); document.getElementById('predModal').style.display='none'; });
+
+/* ========================= Storage Manager (IPFS, localStorage CID manager) ========================= */
+const storageManager = {
+  async initIpfsClient(){
+    if(state.ipfsClient) return state.ipfsClient;
+    try{
+      // ipfs-http-client create: const client = await IpfsHttpClient.create({url:'https://ipfs.infura.io:5001/api/v0'})
+      const client = await IpfsHttpClient.create({url: 'https://ipfs.infura.io:5001/api/v0'});
+      state.ipfsClient = client;
+      log('IPFS client создан (Infura)');
+      return client;
+    }catch(err){
+      log('Ошибка создания IPFS client:', err);
+      alert('Не удалось создать IPFS клиент: '+err.message);
+      return null;
+    }
+  },
+  // save blob to ipfs using client.add
+  async saveBlobToIpfs(blob, name='file.jpg'){
+    try{
+      const client = await this.initIpfsClient();
+      if(!client) return;
+      // показываем прогресс (демо)
+      log('Загрузка в IPFS:', name);
+      const result = await client.add(blob); // const result = await client.add(blob)
+      const cid = result.cid ? result.cid.toString() : result.toString();
+      // сохранить в localStorage
+      const store = JSON.parse(localStorage.getItem('octocore_cids')||'[]');
+      store.push({cid, name, createdAt: Date.now(), note:''});
+      localStorage.setItem('octocore_cids', JSON.stringify(store));
+      renderCidList();
+      alert('Сохранено в IPFS CID: '+cid);
+      return cid;
+    }catch(err){
+      log('IPFS add error:', err);
+      alert('Ошибка сохранения в IPFS: '+err.message);
+    }
+  },
+
+  async fetchFromIpfs(cid){
+    try{
+      const client = await this.initIpfsClient();
+      if(!client) return null;
+      // public gateway fallback
+      const url = `https://ipfs.io/ipfs/${cid}`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Ошибка fetch IPFS gateway: '+res.status);
+      const blob = await res.blob();
+      return blob;
+    }catch(err){
+      log('fetchFromIpfs error:', err);
+      alert('Ошибка получения из IPFS: '+err.message);
+      return null;
+    }
+  }
+};
+
+/* ========================= CID Manager UI ========================= */
+const cidModal = document.getElementById('cidModal');
+document.getElementById('openCidManagerBtn').addEventListener('click', ()=> {
+  renderCidList();
+  cidModal.classList.add('show'); cidModal.style.display='flex';
+});
+document.getElementById('closeCidModal').addEventListener('click', ()=> {
+  cidModal.classList.remove('show'); cidModal.style.display='none';
+});
+document.getElementById('addCidBtn').addEventListener('click', ()=>{
+  const cid = document.getElementById('newCidInput').value.trim();
+  const note = document.getElementById('newCidNote').value.trim();
+  if(!cid){ alert('Введите CID'); return; }
+  const store = JSON.parse(localStorage.getItem('octocore_cids')||'[]');
+  store.push({cid, name:'manual', note, createdAt:Date.now()});
+  localStorage.setItem('octocore_cids', JSON.stringify(store));
+  renderCidList();
+  document.getElementById('newCidInput').value=''; document.getElementById('newCidNote').value='';
+});
+function renderCidList(){
+  const list = document.getElementById('cidList');
+  const store = JSON.parse(localStorage.getItem('octocore_cids')||'[]');
+  list.innerHTML = '';
+  if(store.length===0) list.innerHTML = '<div class="small">Нет CID в localStorage</div>';
+  store.forEach((s,idx)=>{
+    const row = document.createElement('div');
+    row.style.marginBottom='6px';
+    row.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:8px; align-items:center">
+        <div style="flex:1"><b>${s.cid}</b><div class="small">${s.note || ''}</div></div>
+        <div style="display:flex; gap:6px">
+          <button class="btn copyCid" data-idx="${idx}"><i class="fa-solid fa-copy"></i></button>
+          <button class="btn delCid" data-idx="${idx}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.copyCid').forEach(b=>b.addEventListener('click', (e)=>{
+    const idx = Number(e.currentTarget.dataset.idx);
+    const store = JSON.parse(localStorage.getItem('octocore_cids')||'[]');
+    navigator.clipboard.writeText(store[idx].cid);
+    log('CID скопирован');
+  }));
+  list.querySelectorAll('.delCid').forEach(b=>b.addEventListener('click', (e)=>{
+    const idx = Number(e.currentTarget.dataset.idx);
+    const store = JSON.parse(localStorage.getItem('octocore_cids')||'[]');
+    store.splice(idx,1);
+    localStorage.setItem('octocore_cids', JSON.stringify(store));
+    renderCidList();
+    log('CID удалён');
+  }));
+}
+
+/* ========================= Plugin Manager (Frontend plugin API) ========================= */
+const pluginManager = {
+  plugins: {},
+  analyzers: {},
+  storages: {},
+  registerPlugin(name, plugin){
+    state.plugins[name] = plugin;
+    if(plugin.init) plugin.init(this);
+    log('Plugin registered:', name);
+  },
+  unregisterPlugin(name){
+    if(state.plugins[name] && state.plugins[name].destroy) state.plugins[name].destroy();
+    delete state.plugins[name];
+  },
+  registerAnalyzer(name, obj){
+    this.analyzers[name] = obj;
+    log('Analyzer registered:', name);
+  },
+  registerStorage(name, obj){
+    this.storages[name] = obj;
+    log('Storage registered:', name);
+  },
+  async callOnFrame(canvas, metadata){
+    for(const p of Object.values(state.plugins)){
+      if(p.onFrame) await p.onFrame({canvas, metadata});
+    }
+  }
+};
+
+/* ========================= FFmpeg.wasm helper (пример) ========================= */
+const ffmpegHelper = {
+  ffmpeg: null,
+  async init(){
+    if(this.ffmpeg) return this.ffmpeg;
+    const { createFFmpeg, fetchFile } = FFmpeg; // const { createFFmpeg, fetchFile } = FFmpeg;
+    this.ffmpeg = createFFmpeg({ log:true });
+    try{
+      await this.ffmpeg.load(); // await ffmpeg.load()
+      log('ffmpeg.wasm загружен');
+    }catch(err){
+      log('Ошибка загрузки ffmpeg.wasm:', err);
+      alert('Ошибка загрузки ffmpeg.wasm: '+err.message);
+    }
+    return this.ffmpeg;
+  },
+  // Пример: преобразовать изображение в mp4 — демонстрация
+  async imageToMp4(imageBlob){
+    try{
+      const ffmpeg = await this.init();
+      const { fetchFile } = FFmpeg;
+      await ffmpeg.FS('writeFile', 'in.jpg', await fetchFile(imageBlob)); // ffmpeg.FS('writeFile', 'in.jpg', await fetchFile(file))
+      await ffmpeg.run('-loop','1','-i','in.jpg','-c:v','libx264','-t','3','out.mp4');
+      const data = ffmpeg.FS('readFile','out.mp4'); // const data = ffmpeg.FS('readFile', 'out.mp4');
+      const blob = new Blob([data.buffer], {type:'video/mp4'});
+      return blob;
+    }catch(err){
+      log('ffmpeg error:', err);
+      return null;
+    }
+  }
+};
+
+/* ========================= Init tasks ========================= */
+(async function init(){
+  // Preload MobileNet non-blocking
+  aiManager.preloadMobileNet();
+
+  // Create initial gallery
+  state.galleries.push({id:'gallery_1', name:'Default', frames:[]});
+  renderGalleries();
+
+  // Restore stored CIDs into UI
+  renderCidList();
+
+  // Log startup
+  log('OctoCore single-file запущен. Для реальных IP-камер и RTSP используйте server-example (см. комменты).');
+})();
+
+/* ========================= Testing checklist (TESTING.md content) ========================= */
+/*
+  TESTING.md (чеклист):
+  [ ] Переключение вкладок — работает.
+  [ ] Кнопка свернуть меню — работает.
+  [ ] Добавление веб-камеры — работает в Chrome/Firefox (получен поток).
+  [ ] Удаление камеры — поток закрыт (проверка tracks).
+  [ ] Снимок использует интервал указанного поля.
+  [ ] Выделение/снятие выбора в галереях — работает.
+  [ ] Создание таймлапса — появляется в вкладке таймлапсов.
+  [ ] Сохранение в IPFS — CID сохранён в localStorage.
+  [ ] Sobel (tfjs) — не выбрасывает ошибку tensor4d().
+  [ ] Scan button — запускает спиннер строго 4 секунды.
+  [ ] CodeMirror с темой Cobalt не выходит за рамки сайдбара.
+*/
+
+/* ========================= Server-example (README-server.md snippet) ========================= */
+/*
+  server-example/server.js (пример Node proxy для RTSP snapshot и SSDP discovery):
+
+  // Установка зависимостей:
+  // npm install express cors node-ssdp fluent-ffmpeg ipfs-http-client
+
+  const express = require('express');
+  const cors = require('cors');
+  const ffmpeg = require('fluent-ffmpeg');
+  const { Client } = require('node-ssdp');
+
+  const app = express();
+  app.use(cors());
+
+  // RTSP -> snapshot endpoint (пример)
+  app.get('/snapshot', async (req, res) => {
+    const { url } = req.query; // rtsp://user:pass@ip/stream
+    if(!url) return res.status(400).send('url required');
+    // ffmpeg -i rtsp://... -vframes 1 -f image2 -
+    res.set('Content-Type','image/jpeg');
+    try{
+      ffmpeg(url)
+        .outputOptions(['-frames:v 1','-f image2'])
+        .on('error', (err)=>{ console.error('ffmpeg err', err); res.status(500).send(err.message); })
+        .pipe(res, {end:true});
+    }catch(e){
+      res.status(500).send(e.message);
+    }
+  });
+
+  // SSDP demo
+  const ssdp = new Client();
+  ssdp.on('response', (headers, statusCode, rinfo) => {
+    console.log('SSDP response', headers, rinfo);
+  });
+
+  app.get('/discover', (req,res)=>{
+    ssdp.search('ssdp:all');
+    setTimeout(()=> res.json({status:'sent search'}), 3000);
+  });
+
+  app.listen(3000, ()=> console.log('Server example on 3000'));
+
+  Комментарии по деплою: ffmpeg должен быть установлен в системе (apt install ffmpeg). Этот сервер используется как proxy для получения JPEG/HTTP stream из RTSP/IP камер.
+*/
+
+/* ========================= Конец файла ========================= */
+</script>
+</body>
+</html>
