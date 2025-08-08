@@ -265,6 +265,40 @@ function log(msg){ const el=$('logConsole'); const ts = new Date().toLocaleTimeS
 (async function preload(){ try{ log('Загрузка MobileNet...'); state.modelInstances.mobilenet = await mobilenet.load(); log('MobileNet загружен'); }catch(e){ log('Ошибка загрузки MobileNet: '+e.message); } })();
 
 // ========== SCAN / RESTART UI ===========
+// --- Управление вкладками и сайдбаром ---
+let sidebarVisible = true; // флаг видимости сайдбара
+
+/**
+ * showTab(id)
+ * Переключает видимые секции: 'cams', 'galleries', 'timelapses'
+ * Также обновляет класс active у кнопок навигации.
+ */
+function showTab(id){
+  // Список всех вкладок
+  const tabs = ['cams','galleries','timelapses'];
+  // Скрываем все вкладки, показываем выбранную
+  tabs.forEach(t=>{ const el = $(t); if(el) el.style.display = (t===id)?'block':'none'; });
+  // Убираем active у всех кнопок и ставим на соответствующую
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  const map = { cams: 'tabBtnCams', galleries: 'tabBtnGalleries', timelapses: 'tabBtnTl' };
+  const btnId = map[id]; if(btnId && $(btnId)) $(btnId).classList.add('active');
+}
+
+/**
+ * toggleSidebar()
+ * Скрывает или показывает левое меню и корректирует отступ основной области.
+ */
+function toggleSidebar(){
+  const sb = $('sidebar'); const main = $('main'); if(!sb || !main) return;
+  sidebarVisible = !sidebarVisible;
+  if(sidebarVisible){ sb.style.display = 'block'; main.style.marginLeft = '340px'; }
+  else { sb.style.display = 'none'; main.style.marginLeft = '0'; }
+}
+
+// Экспортируем в window чтобы inline onclick/onchange всегда находили функции
+window.showTab = showTab; window.toggleSidebar = toggleSidebar;
+
+// оригинальная функция toggleScanMenu (оставлена без изменений)
 function toggleScanMenu(){ const el=$('scanMenu'); el.style.display = el.style.display==='none'?'block':'none'; }
 async function handleScanClick(){ const btn=$('scanBtn'); const old = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> Сканирование...'; log('Сканирование (демо) запущено'); await new Promise(r=>setTimeout(r,4000)); btn.innerHTML = old; log('Сканирование завершено (демо)'); }
 async function handleRestartClick(){ $('scanMenu').style.display='none'; const btn=$('scanBtn'); const old = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> Перезапуск...'; log('Перезапуск (демо)'); await new Promise(r=>setTimeout(r,4000)); btn.innerHTML = old; log('Перезапуск завершён'); }
