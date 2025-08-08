@@ -390,5 +390,62 @@ function loadImage(url){ return new Promise((res,rej)=>{ const img=new Image(); 
 (function init(){ state.galleries.push({id:'g_default',name:'Main Gallery',items:[]}); renderGalleries(); log('OctoCore инициализирован'); })();
 
 </script>
+
+
+<!-- Вставь этот блок в конец <script> -->
+
+
+<script>
+// --- Гарантируем глобальные имена (чтобы inline onclick/onchange не падали) ---
+if (typeof window !== 'undefined') {
+  // если такие функции у тебя уже объявлены как function foo(){}, то эти присвоения не повредят
+  window.onSourceTypeChange = window.onSourceTypeChange || function(){
+    const el = document.getElementById('sourceType');
+    const ipFields = document.getElementById('ipFields');
+    if(el && ipFields) ipFields.classList.toggle('hidden', el.value !== 'ip');
+  };
+
+  window.onAddSourceClick = window.onAddSourceClick || function(){
+    const type = (document.getElementById('sourceType')||{}).value;
+    if(type === 'web'){ if(window.addCamera) addCamera(); else alert('Функция addCamera не найдена'); }
+    else { const ipFields = document.getElementById('ipFields'); if(ipFields) ipFields.classList.remove('hidden'); }
+  };
+
+  // Для совместимости — если в HTML где-то вызывается scanNetwork() или restartCameras()
+  window.scanNetwork = window.scanNetwork || function(){ if(window.handleScanClick) return handleScanClick(); };
+  window.restartCameras = window.restartCameras || function(){ /* реализуй либо вызов существующей функции */ if(window._restartAllCameras) return _restartAllCameras(); };
+
+  // uploadModel (если он вызывается из HTML)
+  window.uploadModel = window.uploadModel || function(){
+    const name = prompt('Название модели (пример: Sobel (tfjs) или MobileNet (tfjs))');
+    if(!name) return;
+    if(!window.state) window.state = window.state || { models: [] };
+    window.state.models = window.state.models || [];
+    window.state.models.push(name);
+    // обновим селекты, если есть функция для этого
+    if(typeof updateModelSelects === 'function') updateModelSelects();
+    console.log('Модель добавлена: ', name);
+  };
+}
+
+// --- ВАЖНО: исправление ошибки tensor4d — заменяем на tensor2d().reshape()
+// Если у тебя есть функция runAIAnalysisOnCanvas или похожая — найди в ней строку:
+//   tf.tensor4d([[...],[...],[...]], [3,3,1,1])
+// и замени её на:
+function makeSobelKernels(){
+  // создаём gx и gy корректно — tf.tensor2d + reshape
+  const gx = tf.tensor2d([-1,0,1,-2,0,2,-1,0,1], [3,3]).reshape([3,3,1,1]);
+  const gy = tf.tensor2d([1,2,1,0,0,0,-1,-2,-1], [3,3]).reshape([3,3,1,1]);
+  return { gx, gy };
+}
+// пример использования внутри runAIAnalysisOnCanvas:
+// const {gx, gy} = makeSobelKernels();
+// const convX = tf.conv2d(expanded, gx, 1, 'same');
+// const convY = tf.conv2d(expanded, gy, 1, 'same');
+
+</script>
+
+
+
 </body>
 </html>
