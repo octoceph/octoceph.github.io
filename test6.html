@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OctoCore Dashboard — обновлённый v2</title>
+
+<style>
+  :root{ --bg:#071423; --panel:#0b1720; --accent:#06b6d4; --muted:#94a3b8 }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#e6eef6}
+  #sidebar{position:fixed;left:0;top:0;bottom:0;width:340px;background:linear-gradient(180deg,#071826,#04121a);padding:16px;overflow:auto;border-right:1px solid rgba(255,255,255,0.03)}
+  #main{margin-left:340px;padding:12px}
+  h3,h4{margin:6px 0}
+  .block{background:rgba(255,255,255,0.02);padding:10px;border-radius:10px;margin-bottom:12px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#012}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+  .small{padding:6px 8px;font-size:.9rem}
+  .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  nav{display:flex;gap:8px;margin-bottom:12px}
+  nav button{padding:8px 12px;border-radius:8px;border:none;background:transparent;color:var(--muted);cursor:pointer}
+  nav button.active{background:linear-gradient(90deg,#05343a,#024b4f);color:white}
+  .camera-container{display:flex;flex-wrap:wrap;gap:12px}
+  .camera{position:relative;width:320px;background:#061219;border-radius:10px;padding:6px}
+  .camera video,.camera img{width:100%;border-radius:8px;display:block}
+  .cam-controls{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+  .cam-controls button{background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.04);color:#e6eef6;padding:6px;border-radius:6px;cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+  .cam-bottom{position:absolute;left:8px;bottom:8px;display:flex;gap:6px}
+  .cam-bottom input[type=number]{width:72px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e6eef6}
+  .model-select{position:absolute;right:8px;bottom:56px;background:#02171a;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);display:none}
+  .model-select select{padding:6px;border-radius:6px;background:transparent;color:#e6eef6;border:1px solid rgba(255,255,255,0.04)}
+  .model-select button{margin-top:6px;padding:6px;border-radius:6px;background:var(--accent);border:none;color:#012}
+  .gallery-block{background:#071827;padding:10px;border-radius:8px;margin-bottom:12px}
+  .gallery-controls{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .timeline{display:flex;gap:8px;overflow:auto;padding:6px}
+  .thumb{position:relative}
+  .thumb img{height:96px;border-radius:6px}
+  .thumb input[type=checkbox]{position:absolute;left:6px;top:6px}
+  .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#071423;padding:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);z-index:999;width:720px;max-width:95%;display:none}
+  .modal h4{margin-top:0}
+  .modal .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .modal .cid-list{max-height:300px;overflow:auto;background:#03141a;padding:8px;border-radius:6px}
+  .modal .cid-item{display:flex;justify-content:space-between;align-items:center;padding:6px;border-bottom:1px solid rgba(255,255,255,0.02)}
+  #logConsole{background:#000;color:#0f0;padding:8px;font-family:monospace;height:140px;overflow:auto;border-radius:6px;border:1px solid rgba(255,255,255,0.02);white-space:pre-wrap}
+  .ide{margin-top:8px}
+  .ide .controls{display:flex;gap:8px;margin-bottom:6px}
+  .hidden{display:none}
+  @media(max-width:900px){#sidebar{position:relative;width:100%;height:auto}#main{margin-left:0}}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h3>Меню OctoCore</h3>
+
+  <!-- Сканировать -->
+  <div class="block">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="scanBtn" class="btn primary" onclick="handleScanClick()">🔍 Сканировать</button>
+        <div style="position:relative">
+          <button id="scanMenuBtn" class="btn ghost" onclick="toggleScanMenu()">⋯</button>
+          <div id="scanMenu" style="position:absolute;right:0;top:36px;background:#02171a;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);display:none">
+            <button class="btn small" onclick="handleRestartClick()">🔄 Перезапустить</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:.85rem;color:var(--muted)">Обнаружить доступные источники (веб и IP)</div>
+    </div>
+  </div>
+
+  <!-- Добавить источники -->
+  <div class="block">
+    <h4>Добавить источники <span style="color:var(--muted)">🕸️</span></h4>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <select id="sourceType" style="flex:1;padding:8px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:#e6eef6" onchange="onSourceTypeChange()">
+        <option value="web">Web-камера</option>
+        <option value="ip">IP-камера</option>
+      </select>
+      <button class="btn" onclick="onAddSourceClick()">➕</button>
+    </div>
+    <div id="ipFields" class="hidden">
+      <input id="newIpUrl" placeholder="http://192.168.x.x/snapshot.jpg" style="width:100%;padding:8px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:#e6eef6;margin-bottom:6px" />
+      <button class="btn" onclick="showIpAuthModal()">Подключить (логин/пароль)</button>
+    </div>
+  </div>
+
+  <!-- Модели -->
+  <div class="block">
+    <h4>Глобальные модели</h4>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <select id="globalModel" style="flex:1;padding:8px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:#e6eef6"></select>
+      <button class="btn" onclick="uploadModel()">Загрузить</button>
+    </div>
+    <div style="font-size:.85rem;color:var(--muted)">Модели предзагружаются при старте и доступны в карточках камер</div>
+  </div>
+
+  <!-- CID and quick actions -->
+  <div class="block">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn" onclick="openCIDModal()">💾 Сохранённые CID</button>
+      <button class="btn" onclick="showIPFSRecords()">Показать все</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" onclick="scanNetwork()">Сканировать</button>
+      <button class="btn ghost" onclick="restartCameras()">Перезапустить</button>
+    </div>
+  </div>
+
+  <!-- Logs -->
+  <div class="block">
+    <h4>Логи (консоль)</h4>
+    <div id="logConsole"></div>
+  </div>
+
+  <!-- IDE -->
+  <div class="block">
+    <h4>IDE</h4>
+    <div class="ide">
+      <div class="controls">
+        <select id="ideLang"><option value="js">JavaScript</option><option value="py">Python</option></select>
+        <button class="btn" onclick="runIDE()">Запустить</button>
+        <button class="btn ghost" onclick="toggleApplyToModels()">Применять к ИИ</button>
+      </div>
+      <textarea id="ide" style="width:100%;height:160px;padding:8px;border-radius:6px;background:#02171a;border:1px solid rgba(255,255,255,0.03);color:#e6eef6">// Пример JS:
+console.log('Hello from IDE');
+</textarea>
+      <div style="font-size:.8rem;color:var(--muted);margin-top:6px">Переключите язык и нажмите Запустить. Python загрузится через Pyodide по запросу.</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="main">
+  <header>
+    <div>
+      <strong>OctoCore</strong>
+      <div style="font-size:.85rem;color:#94a3b8">Дашборд — камеры · AI · IPFS · Галереи</div>
+    </div>
+    <div>
+      <button class="btn ghost" onclick="toggleSidebar()">Свернуть меню</button>
+    </div>
+  </header>
+
+  <nav>
+    <button id="tabBtnCams" class="active" onclick="showTab('cams')">Камеры</button>
+    <button id="tabBtnGalleries" onclick="showTab('galleries')">Галереи</button>
+    <button id="tabBtnTl" onclick="showTab('timelapses')">Таймлапсы</button>
+  </nav>
+
+  <div style="padding:12px">
+    <section id="cams" class="tab active">
+      <h3>Камеры</h3>
+      <div class="camera-container" id="cameraContainer"></div>
+    </section>
+
+    <section id="galleries" class="tab" style="display:none">
+      <h3>Галереи</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="newGalleryName" placeholder="Название галереи" style="padding:8px;border-radius:6px;background:#02171a;border:1px solid rgba(255,255,255,0.04);color:#e6eef6"/>
+        <button class="btn" onclick="createGallery()">Создать галерею</button>
+        <button class="btn ghost" onclick="selectAllFrames(true)">Выбрать все</button>
+        <button class="btn ghost" onclick="selectAllFrames(false)">Снять выбор</button>
+      </div>
+      <div id="galleriesList"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" onclick="sendSelectedToIPFS()">Отправить выбранные в IPFS</button>
+        <button class="btn" onclick="createTimelapseFromSelected()">Создать таймлапс из выбранных</button>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <input id="fetchCidInput" placeholder="CID для получения" style="padding:8px;border-radius:6px;background:#02171a;border:1px solid rgba(255,255,255,0.04);color:#e6eef6" />
+          <button class="btn ghost" onclick="fetchFromIPFS()">Получить из IPFS</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="timelapses" class="tab" style="display:none">
+      <h3>Таймлапсы</h3>
+      <div id="timelapsesList"></div>
+    </section>
+  </div>
+</div>
+
+<!-- CID Modal -->
+<div id="cidModal" class="modal">
+  <h4>Сохранённые CID</h4>
+  <div class="row">
+    <input id="newCidInput" placeholder="CID" style="flex:1;padding:8px;border-radius:6px;background:#02171a;border:1px solid rgba(255,255,255,0.04);color:#e6eef6" />
+    <input id="newCidNote" placeholder="Метка/подпись" style="width:220px;padding:8px;border-radius:6px;background:#02171a;border:1px solid rgba(255,255,255,0.04);color:#e6eef6" />
+    <button class="btn" onclick="addCIDManually()">Добавить</button>
+    <button class="btn ghost" onclick="closeCIDModal()">Закрыть</button>
+  </div>
+  <div class="cid-list" id="cidList"></div>
+</div>
+
+<!-- Библиотеки: tfjs, mobilenet, CodeMirror. Pyodide будет загружаться по требованию -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+
+<script>
+/*
+  Короткие пояснения к ключевым местам кода (на русском):
+  - scan/restart: имитация с показом spinner на 4 секунды
+  - добавление источников: web -> запускаем getUserMedia; ip -> создаём заглушку и запрашиваем логин/пароль
+  - камеры: компактные иконки управления; интервальная съёмка; запись видео через MediaRecorder
+  - галереи: чекбоксы, создание галереи, сбор выбранных кадров и отправка в IPFS (через публичный gateway), восстановление
+  - CID modal: управление записями в localStorage (подпись, редактирование, удаление)
+  - IDE: CodeMirror (JS/Python) + Pyodide загружается при первом запуске Python
+  - AI: MobileNet предзагружается; Sobel реализован через tf.conv2d; результаты можно отрисовывать в overlay canvas
+*/
+
+const CID_KEY = 'octocore_ipfs_records_v2';
+function loadCIDRecords(){ try{ return JSON.parse(localStorage.getItem(CID_KEY)||'[]'); }catch(e){return[]} }
+function saveCIDRecords(arr){ localStorage.setItem(CID_KEY, JSON.stringify(arr)); }
+
+const state = { cameras:[], galleries:[], selectedFrames:new Set(), models:['Sobel (tfjs)','MobileNet (tfjs)'], modelInstances:{}, applyIDEToModels:false, pyodide:null };
+const $ = id => document.getElementById(id);
+function log(msg){ const el=$('logConsole'); const time=new Date().toLocaleTimeString(); el.textContent += `[${time}] ${msg}\n`; el.scrollTop = el.scrollHeight; }
+
+// scan/restart
+function toggleScanMenu(){ const el=$('scanMenu'); el.style.display = el.style.display==='none'?'block':'none'; }
+async function handleScanClick(){ const btn=$('scanBtn'); const prev=btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> Сканирование...'; log('Сканирование запущено'); await new Promise(r=>setTimeout(r,4000)); btn.innerHTML = prev; log('Сканирование (демо) завершено'); }
+async function handleRestartClick(){ $('scanMenu').style.display='none'; const btn=$('scanBtn'); const prev=btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> Перезапуск...'; log('Перезапуск (демо)'); await new Promise(r=>setTimeout(r,4000)); btn.innerHTML = prev; log('Перезапуск завершён'); }
+
+// add sources
+function onSourceTypeChange(){ const t=$('sourceType').value; $('ipFields').classList.toggle('hidden', t!=='ip'); }
+function onAddSourceClick(){ const t=$('sourceType').value; if(t==='web'){ addCamera(); } else { $('ipFields').classList.remove('hidden'); } }
+function showIpAuthModal(){ const url=$('newIpUrl').value.trim(); if(!url){ alert('Введите URL'); return; } const login=prompt('Логин (можно пустой)'); const pass=prompt('Пароль (можно пустой)'); addIPPlaceholder(url,login,pass); }
+
+function addIPPlaceholder(url,login,pass){ const id='cam_ip_'+Math.random().toString(36).slice(2,8); const el=document.createElement('div'); el.className='camera'; el.dataset.camId=id; const img=document.createElement('img'); img.src='data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#02171a"/><text x="50%" y="50%" fill="#6ee7b7" font-size="20" text-anchor="middle" dy=".3em">IP CAM\n${url}</text></svg>`); const controls=document.createElement('div'); controls.className='cam-controls'; const del=document.createElement('button'); del.innerHTML='🗑'; del.title='Удалить'; del.onclick=()=>{ el.remove(); state.cameras = state.cameras.filter(c=>c.id!==id); log('IP camera removed: '+id); }; controls.appendChild(del); el.appendChild(img); el.appendChild(controls); const bottom=document.createElement('div'); bottom.className='cam-bottom'; const interval=document.createElement('input'); interval.type='number'; interval.min=1; interval.value=5; interval.title='Интервал съёмки (сек)'; interval.onchange=()=>{ const cam=state.cameras.find(c=>c.id===id); if(cam) cam.intervalMs=parseInt(interval.value,10)*1000; }; const recordBtn=document.createElement('button'); recordBtn.className='btn'; recordBtn.textContent='⛔'; recordBtn.title='Запись недоступна'; recordBtn.disabled=true; bottom.appendChild(interval); bottom.appendChild(recordBtn); el.appendChild(bottom); $('cameraContainer').appendChild(el); state.cameras.push({id,type:'ip',url,login,pass,el,intervalMs:5000}); log('IP placeholder added: '+url); }
+
+// web camera
+async function addCamera(){ try{ const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:false}); createWebCameraCard(stream); log('Web camera added'); }catch(e){ log('Camera error: '+(e.message||e)); alert('Ошибка доступа к камере: '+(e.message||e)); } }
+function createWebCameraCard(stream){ const id='cam_'+Math.random().toString(36).slice(2,9); const el=document.createElement('div'); el.className='camera'; el.dataset.camId=id; const video=document.createElement('video'); video.autoplay=true; video.playsInline=true; video.muted=true; video.srcObject=stream; const overlay=document.createElement('canvas'); overlay.style.position='absolute'; overlay.style.left='6px'; overlay.style.top='6px'; overlay.style.pointerEvents='none'; overlay.style.borderRadius='8px'; const controls=document.createElement('div'); controls.className='cam-controls'; const btnDel=document.createElement('button'); btnDel.innerHTML='🗑'; btnDel.title='Удалить'; btnDel.onclick=()=>{ try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){} el.remove(); state.cameras=state.cameras.filter(c=>c.id!==id); log('Camera removed: '+id); }; const btnAI=document.createElement('button'); btnAI.innerHTML='🤖'; btnAI.title='ИИ'; btnAI.onclick=()=>{ modelBox.style.display = modelBox.style.display==='block'?'none':'block'; }; const btnRecord=document.createElement('button'); btnRecord.innerHTML='⦿'; btnRecord.title='Запись'; btnRecord.onclick=()=>toggleRecording(id); controls.appendChild(btnAI); controls.appendChild(btnRecord); controls.appendChild(btnDel); const bottom=document.createElement('div'); bottom.className='cam-bottom'; const snap=document.createElement('button'); snap.className='btn'; snap.textContent='📷'; snap.title='Снимок'; snap.onclick=async()=>{ const blob=await captureImageFromVideo(video); addSnapshotToGallery(blob); log('Snapshot taken: '+id); }; const interval=document.createElement('input'); interval.type='number'; interval.min=1; interval.value=5; interval.title='Интервал (сек)'; interval.onchange=()=>{ const cam=state.cameras.find(c=>c.id===id); if(cam) cam.intervalMs=parseInt(interval.value,10)*1000; }; bottom.appendChild(snap); bottom.appendChild(interval); const modelBox=document.createElement('div'); modelBox.className='model-select'; modelBox.style.display='none'; const select=document.createElement('select'); select.innerHTML=state.models.map(m=>`<option>${m}</option>`).join(''); const run=document.createElement('button'); run.textContent='Run'; run.onclick=async()=>{ const modelName=select.value; log('AI run '+modelName+' on '+id); const canvas=await captureCanvasFromVideo(video); await runAIAnalysisOnCanvas(canvas,modelName,overlay); }; const toggleOverlayBtn=document.createElement('button'); toggleOverlayBtn.textContent='Toggle'; toggleOverlayBtn.onclick=()=>{ overlay.style.display = overlay.style.display==='none'?'block':'none'; }; modelBox.appendChild(select); modelBox.appendChild(run); modelBox.appendChild(toggleOverlayBtn); el.appendChild(video); el.appendChild(overlay); el.appendChild(controls); el.appendChild(bottom); el.appendChild(modelBox); $('cameraContainer').appendChild(el); state.cameras.push({id,type:'web',stream,el,video,overlay,intervalMs:5000,recorder:null,recording:false}); video.addEventListener('loadedmetadata',()=>{ overlay.width=video.videoWidth||video.clientWidth; overlay.height=video.videoHeight||video.clientHeight; overlay.style.width=video.clientWidth+'px'; overlay.style.height=video.clientHeight+'px'; overlay.style.display='none'; }); startIntervalCapture(id); }
+function startIntervalCapture(id){ const cam = state.cameras.find(c=>c.id===id); if(!cam||cam.type!=='web') return; if(cam._intervalHandle) clearInterval(cam._intervalHandle); cam._intervalHandle = setInterval(async ()=>{ if(cam.video){ try{ const blob=await captureImageFromVideo(cam.video); addSnapshotToGallery(blob); log('Interval snapshot: '+id); }catch(e){ log('Interval snap error: '+e.message); } } }, cam.intervalMs); }
+function toggleRecording(id){ const cam=state.cameras.find(c=>c.id===id); if(!cam||cam.type!=='web') return; if(cam.recording){ cam.recorder.stop(); cam.recording=false; log('Recording stopped: '+id); } else { const stream=cam.stream; const recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp8'}); cam.chunks=[]; recorder.ondataavailable=e=>cam.chunks.push(e.data); recorder.onstop=()=>{ const blob=new Blob(cam.chunks,{type:'video/webm'}); addSnapshotToGallery(blob); log('Video saved as gallery item: '+id); }; cam.recorder=recorder; cam.recording=true; recorder.start(); log('Recording started: '+id); } }
+
+// galleries
+function createGallery(){ const name=$('newGalleryName').value.trim()||('Gallery '+(state.galleries.length+1)); const id='g_'+Math.random().toString(36).slice(2,8); state.galleries.push({id,name,items:[]}); renderGalleries(); $('newGalleryName').value=''; log('Gallery created: '+name); }
+function addSnapshotToGallery(blob){ if(state.galleries.length===0) createGallery(); const g=state.galleries[0]; const id='it_'+Math.random().toString(36).slice(2,8); const url=URL.createObjectURL(blob); g.items.push({id,src:url,blob,cid:null}); renderGalleries(); }
+function renderGalleries(){ const container=$('galleriesList'); container.innerHTML=''; state.galleries.forEach(g=>{ const block=document.createElement('div'); block.className='gallery-block'; const header=document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.innerHTML=`<strong>${g.name}</strong> <span style="color:var(--muted)">${g.items.length} items</span>`; const timeline=document.createElement('div'); timeline.className='timeline'; g.items.forEach(it=>{ const t=document.createElement('div'); t.className='thumb'; const img=document.createElement('img'); img.src=it.src; const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=state.selectedFrames.has(it.id); cb.onchange=()=>{ if(cb.checked) state.selectedFrames.add(it.id); else state.selectedFrames.delete(it.id); }; t.appendChild(cb); t.appendChild(img); timeline.appendChild(t); }); block.appendChild(header); block.appendChild(timeline); container.appendChild(block); }); }
+function selectAllFrames(flag){ state.selectedFrames.clear(); if(flag) state.galleries.forEach(g=>g.items.forEach(it=>state.selectedFrames.add(it.id))); renderGalleries(); }
+async function sendSelectedToIPFS(){ const selected=[]; state.galleries.forEach(g=>g.items.forEach(it=>{ if(state.selectedFrames.has(it.id)) selected.push(it); })); if(selected.length===0){ alert('Нет выделенных кадров'); return; } log('Sending '+selected.length+' items to IPFS'); for(const it of selected){ try{ let blob=it.blob; if(!blob){ const resp=await fetch(it.src); blob=await resp.blob(); } const cid=await uploadToIPFS(blob); it.cid=cid; log('Uploaded to IPFS: '+cid); saveCIDRecord({cid,note:'uploaded'}); }catch(e){ log('Upload error: '+e.message); } } renderGalleries(); }
+async function createTimelapseFromSelected(){ const selected=[]; state.galleries.forEach(g=>g.items.forEach(it=>{ if(state.selectedFrames.has(it.id)) selected.push(it); })); if(selected.length<2){ alert('Нужно минимум 2 кадра'); return; } log('Creating timelapse from '+selected.length+' frames'); const imgs=[]; for(const it of selected){ const img=await loadImage(it.src); imgs.push(img); } const w=imgs[0].naturalWidth||imgs[0].width; const h=imgs[0].naturalHeight||imgs[0].height; const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h; const ctx=canvas.getContext('2d'); const stream=canvas.captureStream(5); const recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp8'}); const chunks=[]; recorder.ondataavailable=e=>chunks.push(e.data); recorder.start(); for(const im of imgs){ ctx.drawImage(im,0,0,w,h); await new Promise(r=>setTimeout(r,200)); } recorder.stop(); await new Promise(r=>recorder.onstop=r); const blob=new Blob(chunks,{type:'video/webm'}); const id='tl_'+Math.random().toString(36).slice(2,8); if(!window.timelapses) window.timelapses=[]; window.timelapses.push({id,blob}); renderTimelapses(); log('Timelapse created: '+id); }
+function renderTimelapses(){ const c=$('timelapsesList'); c.innerHTML=''; if(window.timelapses){ window.timelapses.forEach(t=>{ const div=document.createElement('div'); div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center'; div.style.padding='8px'; div.style.border='1px solid rgba(255,255,255,0.03)'; div.style.borderRadius='6px'; const title=document.createElement('div'); title.textContent=t.id; const actions=document.createElement('div'); const btnPlay=document.createElement('button'); btnPlay.className='btn ghost'; btnPlay.textContent='Просмотр'; btnPlay.onclick=()=>{ const url=URL.createObjectURL(t.blob); window.open(url); }; actions.appendChild(btnPlay); div.appendChild(title); div.appendChild(actions); c.appendChild(div); }); } }
+async function fetchFromIPFS(){ const cid=$('fetchCidInput').value.trim(); if(!cid){ alert('Введите CID'); return; } const gateway='https://ipfs.io/ipfs/'; try{ const url=gateway+cid; const resp=await fetch(url); const blob=await resp.blob(); addSnapshotToGallery(blob); log('Fetched from IPFS: '+cid); }catch(e){ log('Fetch error: '+e.message); alert('Ошибка получения: '+e.message); } }
+
+// CID modal
+function openCIDModal(){ $('cidModal').style.display='block'; renderCIDList(); }
+function closeCIDModal(){ $('cidModal').style.display='none'; }
+function renderCIDList(){ const list=$('cidList'); list.innerHTML=''; const arr=loadCIDRecords(); arr.forEach((r,idx)=>{ const item=document.createElement('div'); item.className='cid-item'; item.innerHTML=`<div><strong>${r.cid}</strong><div style="font-size:.85rem;color:var(--muted)">${r.note||''}</div></div>`; const actions=document.createElement('div'); const editBtn=document.createElement('button'); editBtn.className='btn ghost'; editBtn.textContent='✏️'; editBtn.onclick=()=>{ const newNote=prompt('Метка',r.note||''); if(newNote!==null){ r.note=newNote; saveCIDRecords(arr); renderCIDList(); } }; const delBtn=document.createElement('button'); delBtn.className='btn'; delBtn.textContent='🗑'; delBtn.onclick=()=>{ arr.splice(idx,1); saveCIDRecords(arr); renderCIDList(); }; actions.appendChild(editBtn); actions.appendChild(delBtn); item.appendChild(actions); list.appendChild(item); }); }
+function addCIDManually(){ const cid=$('newCidInput').value.trim(); const note=$('newCidNote').value.trim(); if(!cid) return; const arr=loadCIDRecords(); arr.push({cid,note,timestamp:Date.now()}); saveCIDRecords(arr); $('newCidInput').value=''; $('newCidNote').value=''; renderCIDList(); }
+function saveCIDRecord(obj){ const arr=loadCIDRecords(); arr.push(obj); saveCIDRecords(arr); }
+
+// IDE
+let editor=null; function initEditor(){ editor=CodeMirror.fromTextArea($('ide'),{lineNumbers:true,mode:'javascript',theme:'default'}); }
+initEditor(); $('ideLang').addEventListener('change',()=>{ const v=$('ideLang').value; editor.setOption('mode',v==='js'?'javascript':'python'); });
+async function runIDE(){ const lang=$('ideLang').value; const code=editor.getValue(); if(lang==='js'){ try{ const fn=new Function('state','log','tf','mobilenet','runAIAnalysisOnCanvas', code); await fn(state, log, window.tf, window.mobilenet, runAIAnalysisOnCanvas); log('JS executed'); }catch(e){ log('JS Error: '+e.message); } } else { if(!state.pyodide){ log('Loading Pyodide...'); state.pyodide = await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'}); log('Pyodide loaded'); } try{ const res=await state.pyodide.runPythonAsync(code); log('Python result: '+String(res).slice(0,200)); }catch(e){ log('Python error: '+e.message); } } }
+function toggleApplyToModels(){ state.applyIDEToModels = !state.applyIDEToModels; log('Apply IDE to models: '+state.applyIDEToModels); }
+
+// AI preload
+(async function(){ try{ log('Loading MobileNet...'); state.modelInstances.mobilenet = await mobilenet.load(); log('MobileNet ready'); }catch(e){ log('MobileNet load error: '+e.message); } })();
+
+// AI run
+async function runAIAnalysisOnCanvas(canvas,modelName,overlayCanvas){ if(modelName.includes('Sobel')){ log('AI:Sobel start'); await tf.ready(); const t=tf.tidy(()=>{ let img=tf.browser.fromPixels(canvas).mean(2).toFloat(); const expanded=img.expandDims(0).expandDims(-1); const gx=tf.tensor4d([[-1,0,1],[-2,0,2],[-1,0,1]],[3,3,1,1]); const gy=tf.tensor4d([[1,2,1],[0,0,0],[-1,-2,-1]],[3,3,1,1]); const convX=tf.conv2d(expanded,gx,1,'same'); const convY=tf.conv2d(expanded,gy,1,'same'); const mag=convX.square().add(convY.square()).sqrt().squeeze(); return mag; }); const magArr=await t.array(); const H=magArr.length,W=magArr[0].length; overlayCanvas.width=W; overlayCanvas.height=H; overlayCanvas.style.width=canvas.width+'px'; overlayCanvas.style.height=canvas.height+'px'; const ctx=overlayCanvas.getContext('2d'); const imgData=ctx.createImageData(W,H); const threshold=60; let count=0; for(let y=0;y<H;y++){ for(let x=0;x<W;x++){ const v=magArr[y][x]; const idx=(y*W+x)*4; if(v>threshold){ imgData.data[idx]=255; imgData.data[idx+1]=255; imgData.data[idx+2]=255; imgData.data[idx+3]=255; count++; } else { imgData.data[idx+3]=0; } } } ctx.putImageData(imgData,0,0); log('Sobel edges: '+count); t.dispose(); return {method:'sobel',count}; }
+  if(modelName.toLowerCase().includes('mobilenet')){ if(!state.modelInstances.mobilenet){ state.modelInstances.mobilenet = await mobilenet.load(); log('MobileNet loaded deferred'); } const preds = await state.modelInstances.mobilenet.classify(canvas); log('MobileNet preds: '+JSON.stringify(preds)); return {method:'mobilenet',preds}; }
+  log('Model not supported'); return null; }
+
+// IPFS upload helper (simple)
+async function uploadToIPFS(blob){ const gateway='https://api.helia.io/api/v0/add'; const form=new FormData(); form.append('file',blob); const res=await fetch(gateway,{method:'POST',body:form}); const text=await res.text(); try{ const j=JSON.parse(text); const cid=j.Hash||j.cid||(j[0]&&j[0].Hash); saveCIDRecord({cid,note:'upload',ts:Date.now()}); return cid; }catch(e){ const m=text.match(/"?Hash"?\s*[:=]\s*"?([A-Za-z0-9]+)/i); if(m){ const cid=m[1]; saveCIDRecord({cid,note:'upload',ts:Date.now()}); return cid; } throw new Error('IPFS response parse error'); } }
+
+// misc helpers
+function captureImageFromVideo(videoEl){ return new Promise((res,rej)=>{ try{ const w=videoEl.videoWidth||videoEl.clientWidth||640; const h=videoEl.videoHeight||videoEl.clientHeight||480; const c=document.createElement('canvas'); c.width=w; c.height=h; const ctx=c.getContext('2d'); ctx.drawImage(videoEl,0,0,w,h); c.toBlob(b=>res(b),'image/png'); }catch(e){ rej(e); } }); }
+function captureCanvasFromVideo(videoEl){ return new Promise((res,rej)=>{ try{ const w=videoEl.videoWidth||videoEl.clientWidth||640; const h=videoEl.videoHeight||videoEl.clientHeight||480; const c=document.createElement('canvas'); c.width=w; c.height=h; const ctx=c.getContext('2d'); ctx.drawImage(videoEl,0,0,w,h); res(c); }catch(e){ rej(e); } }); }
+function loadImage(url){ return new Promise((res,rej)=>{ const img=new Image(); img.crossOrigin='anonymous'; img.onload=()=>res(img); img.onerror=(e)=>rej(e); img.src=url; }); }
+
+// init default gallery
+(function(){ state.galleries.push({id:'g_default',name:'Main Gallery',items:[]}); renderGalleries(); log('OctoCore initialized v2'); })();
+
+// simple UI helpers
+function toggleSidebar(){ const sb = document.getElementById('sidebar'); sb.style.display = sb.style.display==='none' ? 'block' : 'block'; }
+function showTab(id){ ['tabBtnCams','tabBtnGalleries','tabBtnTl'].forEach(b=>document.getElementById(b).classList.remove('active')); ['cams','galleries','timelapses'].forEach(s=>document.getElementById(s).style.display='none'); if(id==='cams'){ document.getElementById('tabBtnCams').classList.add('active'); document.getElementById('cams').style.display='block'; } if(id==='galleries'){ document.getElementById('tabBtnGalleries').classList.add('active'); document.getElementById('galleries').style.display='block'; } if(id==='timelapses'){ document.getElementById('tabBtnTl').classList.add('active'); document.getElementById('timelapses').style.display='block'; } }
+
+</script>
+</body>
+</html>
