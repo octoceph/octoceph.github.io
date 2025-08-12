@@ -241,6 +241,43 @@
           <div class="metric"><div class="muted-small">CPU %</div><div id="cpuUsage" class="big-number">—</div></div>
           <div class="metric"><div class="muted-small">Память (MB)</div><div id="memUsage" class="big-number">—</div></div>
         </div>
+
+
+       <div class="panel" style="flex:1 1 220px">
+          <h3>Краткая статистика</h3>
+          <div class="muted-small">Последнее обновление</div>
+          <div id="lastUpdated" style="font-weight:700;margin-top:6px">—</div>
+          <div style="height:8px"></div>
+          <div class="muted-small">Средняя загрузка сети</div>
+          <div id="netLoad" class="big-number">—</div>
+        </div>
+
+
+       <div class="panel">
+            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">Доп. источники / симуляции</h4>
+            <div class="sensors">
+              <div class="sensor">
+                <div class="muted-small">Температура (°C)</div>
+                <div id="tempVal" style="font-weight:700;font-size:18px">—</div>
+                <div class="bar"><i id="tempBar" style="width:10%"></i></div>
+              </div>
+              <div class="sensor">
+                <div class="muted-small">Влажность (%)</div>
+                <div id="humVal" style="font-weight:700;font-size:18px">—</div>
+                <div class="bar"><i id="humBar" style="width:10%"></i></div>
+              </div>
+              <div class="sensor">
+                <div class="muted-small">Влажность почвы (%)</div>
+                <div id="soilVal" style="font-weight:700;font-size:18px">—</div>
+                <div class="bar"><i id="soilBar" style="width:10%"></i></div>
+              </div>
+            </div>
+            <div style="margin-top:10px" class="tiny">Данные обновляются каждую секунду. Можно остановить/запустить.</div>
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button id="btnSimToggle">Стоп</button>
+              <button id="btnExportSim">Экспорт</button>
+            </div>
+          </div>
       </section>
 
       <!-- Источники: камеры и др. -->
@@ -271,31 +308,7 @@
             </div>
           </div>
 
-          <div class="panel">
-            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">Доп. источники / симуляции</h4>
-            <div class="sensors">
-              <div class="sensor">
-                <div class="muted-small">Температура (°C)</div>
-                <div id="tempVal" style="font-weight:700;font-size:18px">—</div>
-                <div class="bar"><i id="tempBar" style="width:10%"></i></div>
-              </div>
-              <div class="sensor">
-                <div class="muted-small">Влажность (%)</div>
-                <div id="humVal" style="font-weight:700;font-size:18px">—</div>
-                <div class="bar"><i id="humBar" style="width:10%"></i></div>
-              </div>
-              <div class="sensor">
-                <div class="muted-small">Влажность почвы (%)</div>
-                <div id="soilVal" style="font-weight:700;font-size:18px">—</div>
-                <div class="bar"><i id="soilBar" style="width:10%"></i></div>
-              </div>
-            </div>
-            <div style="margin-top:10px" class="tiny">Симуляция: данные обновляются каждую секунду. Можно остановить/запустить.</div>
-            <div style="margin-top:8px;display:flex;gap:8px">
-              <button id="btnSimToggle">Остановить симуляцию</button>
-              <button id="btnExportSim">Экспорт JSON</button>
-            </div>
-          </div>
+        
         </div>
       </section>
 
