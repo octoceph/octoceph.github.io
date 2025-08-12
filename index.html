@@ -310,6 +310,7 @@
           <div class="camera panel">
             <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">IP-камеры / RTSP / JPEG</h4>
             <!-- IP camera: пользователь вводит URL; из-за CORS некоторые камеры не покажутся -->
+            <video id="webcam" autoplay="" playsinline="" muted=""></video>
             <input id="ipUrl" placeholder="Вставьте URL (http(s) JPEG/ MJPEG)" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#e6f6ff" />
             <div style="height:8px"></div>
             <!--<img class="viewer" id="ipViewer" alt="IP Camera feed (preview)" />-->
