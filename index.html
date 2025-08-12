@@ -297,29 +297,29 @@
         <h3 style="margin:0 0 8px 0; color:rgb(var(--accent2))">Источники: камеры и сенсоры</h3>
         <div class="sources-row">
           <div class="camera panel">
-            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">Веб-камеры</h4>
+            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">USB / IP / RTSP / MJPEG /</h4>
             <!-- video элемент заполняется через getUserMedia -->
             <video id="webcam" autoplay playsinline muted></video>
             <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
               <button id="btnStartCam">Включить камеру</button>
               <button id="btnStopCam">Выключить</button>
-              <div class="tiny" id="camStatus">Статус: —</div>
+              <div class="tiny" id="camStatus">Статус: — </div>
             </div>
           </div>
 
-          <div class="camera panel">
-            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">IP-камеры / RTSP / JPEG</h4>
+         <!-- <div class="camera panel">
+            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">IP-камеры / RTSP / MJPEG</h4>
             <!-- IP camera: пользователь вводит URL; из-за CORS некоторые камеры не покажутся -->
-            <video id="webcam" autoplay="" playsinline="" muted=""></video>
+            <!-- <video id="webcam" autoplay="" playsinline="" muted=""></video>
             <input id="ipUrl" placeholder="Вставьте URL (http(s) JPEG/ MJPEG)" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#e6f6ff" />
             <div style="height:8px"></div>
-            <!--<img class="viewer" id="ipViewer" alt="IP Camera feed (preview)" />-->
+            <img class="viewer" id="ipViewer" alt="IP Camera feed (preview)" />
             <div style="display:flex;gap:8px;margin-top:8px;">
               <button id="btnLoadIP">Загрузить</button>
               <button id="btnClearIP">Очистить</button>
-              <div class="tiny" id="ipStatus">Статус: —</div>
+              <div class="tiny" id="ipStatus">Статус: —  </div>
             </div>
-          </div>
+          </div> -->
 
         
         </div>
