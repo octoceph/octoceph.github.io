@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Octo Dashboard — Holographic</title>
+
+<!-- Font Awesome для иконок (CDN) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-pbJ6f+..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<style>
+  /* Общие переменные — HOLOGRAPHIC стиль */
+  :root{
+    --bg:#071026;
+    --glass: rgba(255,255,255,0.06);
+    --accent1: 125,200,255;   /* как rgb(...) */
+    --accent2: 200,120,255;
+    --panel-radius: 14px;
+    --glass-border: rgba(255,255,255,0.06);
+    --neon: 0 0 24px rgba(125,200,255,0.12), inset 0 0 30px rgba(125,200,255,0.02);
+    --glass-blur: 10px;
+    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    --left-width: 260px;
+    --header-h: 64px;
+    --footer-h: 48px;
+  }
+
+  /* Убираем веб-скроллбар (как просили) */
+  ::-webkit-scrollbar { width: 0px; height: 0px; }
+
+  html,body{
+    height:100%; margin:0; padding:0;
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(125,200,255,0.04), transparent),
+                radial-gradient(900px 400px at 90% 90%, rgba(200,120,255,0.03), transparent),
+                var(--bg);
+    font-family: monospace, "Courier New", monospace; /* моноширинный основной шрифт */
+    color:#e6f6ff;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  /* Фиксированное левое меню */
+  .left {
+    position: fixed;
+    left: 0; top: 0;
+    width: var(--left-width);
+    height: 100%;
+    padding: 18px;
+    box-sizing: border-box;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-right: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur));
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .logo {
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+  .logo img { height:40px; width:auto; filter: drop-shadow(0 2px 8px rgba(125,200,255,0.06)); }
+  .logo strong { font-size:16px; line-height:1; color:rgb(var(--accent1)); }
+  .muted { color: rgba(230,246,255,0.6); font-size:12px; }
+
+  /* Меню-элементы */
+  .menu { margin-top:8px; display:flex; flex-direction:column; gap:8px; }
+  .menu button {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-radius:10px; border:1px solid transparent;
+    background: rgba(255,255,255,0.01); color:var(--muted); cursor:pointer; text-align:left;
+  }
+  .menu button:hover { border-color: rgba(125,200,255,0.08); color:#fff; box-shadow: 0 6px 30px rgba(125,200,255,0.03); }
+
+  /* Header и Footer фиксированные */
+  header.app-header, footer.footer {
+    position: fixed;
+    left: var(--left-width);
+    right: 0;
+    height: var(--header-h);
+    display:flex; align-items:center; padding:0 18px; box-sizing:border-box;
+    background: linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    border-bottom: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur));
+    z-index: 40;
+  }
+  footer.footer {
+    top: auto;
+    bottom: 0;
+    border-top: 1px solid var(--glass-border);
+    height: var(--footer-h);
+  }
+
+  header.app-header .title { font-weight:700; color:rgb(var(--accent1)); margin-left:8px; }
+
+  /* Основная область контента */
+  .main {
+    margin-left: var(--left-width);
+    margin-top: var(--header-h);
+    margin-bottom: var(--footer-h);
+    padding: 20px;
+    height: calc(100vh - var(--header-h) - var(--footer-h));
+    box-sizing:border-box;
+    overflow:auto;
+  }
+
+  /* .grid-canvas — фон основной области, где визуальные элементы "плавают" */
+  .grid-canvas {
+    position:relative;
+    width:100%; height:100%;
+    border-radius:12px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0 1px, transparent 1px 40px);
+    padding:18px;
+    box-sizing:border-box;
+    overflow:auto;
+    display:flex; flex-direction:column; gap:16px;
+  }
+
+  /* Панели метрик */
+  .metrics-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .panel {
+    flex:1 1 300px;
+    min-width: 260px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius: var(--panel-radius);
+    border: 1px solid var(--glass-border);
+    padding:12px;
+    box-sizing:border-box;
+    box-shadow: var(--neon);
+    backdrop-filter: blur(var(--glass-blur));
+  }
+  .panel h3 { margin:0 0 8px 0; color: rgb(var(--accent2)); font-size:14px; }
+  .metric { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-top:1px dashed rgba(255,255,255,0.02); }
+  .metric:first-child{ border-top:0; }
+
+  .big-number { font-size:20px; font-weight:700; color: rgb(var(--accent1)); }
+
+  /* Камеры и источники */
+  .sources-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .camera {
+    flex:1 1 360px; min-width:280px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+    border-radius:12px; padding:10px; border:1px solid var(--glass-border);
+  }
+  video, img.viewer {
+    width:100%; height:220px; object-fit:cover; border-radius:8px; background:#000;
+  }
+
+  /* sensor simulation */
+  .sensors { display:flex; gap:12px; flex-wrap:wrap; }
+  .sensor {
+    flex:1 1 200px; min-width:160px;
+    padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.01);
+  }
+  .bar {
+    height:10px; width:100%; background: rgba(0,0,0,0.2); border-radius:6px; overflow:hidden; margin-top:8px;
+  }
+  .bar > i { display:block; height:100%; background: linear-gradient(90deg, rgba(var(--accent1),0.8), rgba(var(--accent2),0.8)); width:20%; transition: width 600ms ease; }
+
+  /* footer content alignment */
+  .footer { display:flex; align-items:center; gap:10px; padding:0 18px; color:var(--muted); font-size:13px; }
+
+  /* small helpers */
+  .muted-small { color: rgba(230,246,255,0.6); font-size:12px; }
+  .tiny { font-size:11px; color:rgba(230,246,255,0.55); }
+
+  /* responsive tweaks */
+  @media (max-width:980px){
+    .left{ display:none; }
+    .main{ margin-left:0; }
+    header, footer{ left:0; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ЛЕВОЕ МЕНЮ -->
+  <aside class="left" role="navigation" aria-label="Левое меню">
+    <div class="logo">
+      <img src="https://blockchainaccreditive.github.io/css/iokwa.svg" alt="logo">
+      <div style="display:flex;flex-direction:column;line-height:1;">
+        <strong>Octo Dashboard</strong>
+        <span class="muted">Holographic Operations</span>
+      </div>
+    </div>
+
+    <nav class="menu" aria-label="Главное меню">
+      <button id="btnOverview"><i class="fas fa-th-large"></i> Обзор</button>
+      <button id="btnMetrics"><i class="fas fa-chart-line"></i> Метрики</button>
+      <button id="btnCams"><i class="fas fa-video"></i> Камеры</button>
+      <button id="btnSensors"><i class="fas fa-seedling"></i> Датчики</button>
+      <button id="btnSettings"><i class="fas fa-cog"></i> Настройки</button>
+    </nav>
+
+    <div style="margin-top:auto">
+      <div class="muted-small">Версия: 0.1</div>
+      <div class="tiny">Состояние: тестовый прототип</div>
+    </div>
+  </aside>
+
+  <!-- HEADER -->
+  <header class="app-header" role="banner">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center"><i class="fas fa-atom" style="color:rgb(var(--accent1))"></i></div>
+      <div class="title">Панель управления — OctoCore</div>
+      <div style="margin-left:18px" class="muted">Тестовая среда — интеграция IPFS / Filecoin / CBDC</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+      <div class="muted-small">Пользователь: <strong id="userAddr">—</strong></div>
+      <button id="btnConnectWallet" style="padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#cfefff;cursor:pointer"><i class="fas fa-wallet"></i> Подключить кошелёк</button>
+    </div>
+  </header>
+
+  <!-- ОСНОВНОЕ ПРОСТРАНСТВО -->
+  <main class="main" role="main">
+    <div class="grid-canvas">
+
+      <!-- РЯД МЕТРИК -->
+      <section class="metrics-row" aria-label="Метрики">
+        <div class="panel" id="filecoinPanel">
+          <h3>Filecoin — сеть / хранилище</h3>
+          <div class="metric"><div class="muted-small">Пул размещения (GiB)</div><div class="big-number" id="filecoinStorage">—</div></div>
+          <div class="metric"><div class="muted-small">Ставка хоста (FIL/day)</div><div id="filecoinPrice" class="big-number">—</div></div>
+          <div class="metric"><div class="muted-small">Активные контракт-узлы</div><div id="filecoinDeals" class="big-number">—</div></div>
+        </div>
+
+        <div class="panel" id="ipfsPanel">
+          <h3>IPFS / Ноды</h3>
+          <div class="metric"><div class="muted-small">Онлайн нод</div><div id="ipfsNodes" class="big-number">—</div></div>
+          <div class="metric"><div class="muted-small">Среднее время отклика (ms)</div><div id="ipfsLatency" class="big-number">—</div></div>
+          <div class="metric"><div class="muted-small">Pinned CIDs</div><div id="pinnedCount" class="big-number">—</div></div>
+        </div>
+
+        <div class="panel" id="serverPanel">
+          <h3>Серверные метрики</h3>
+          <div class="metric"><div class="muted-small">Активных клиентов</div><div id="activeClients" class="big-number">—</div></div>
+          <div class="metric"><div class="muted-small">CPU %</div><div id="cpuUsage" class="big-number">—</div></div>
+          <div class="metric"><div class="muted-small">Память (MB)</div><div id="memUsage" class="big-number">—</div></div>
+        </div>
+      </section>
+
+      <!-- Источники: камеры и др. -->
+      <section>
+        <h3 style="margin:0 0 8px 0; color:rgb(var(--accent2))">Источники: камеры и сенсоры</h3>
+        <div class="sources-row">
+          <div class="camera panel">
+            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">Веб-камера (Browser)</h4>
+            <!-- video элемент заполняется через getUserMedia -->
+            <video id="webcam" autoplay playsinline muted></video>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+              <button id="btnStartCam">Включить камеру</button>
+              <button id="btnStopCam">Выключить</button>
+              <div class="tiny" id="camStatus">Статус: —</div>
+            </div>
+          </div>
+
+          <div class="camera panel">
+            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">IP-камера / RTSP / JPEG</h4>
+            <!-- IP camera: пользователь вводит URL; из-за CORS некоторые камеры не покажутся -->
+            <input id="ipUrl" placeholder="Вставьте URL (http(s) JPEG/ MJPEG)" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#e6f6ff" />
+            <div style="height:8px"></div>
+            <img class="viewer" id="ipViewer" alt="IP Camera feed (preview)" />
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button id="btnLoadIP">Загрузить</button>
+              <button id="btnClearIP">Очистить</button>
+              <div class="tiny" id="ipStatus">Статус: —</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">Доп. источники / симуляции</h4>
+            <div class="sensors">
+              <div class="sensor">
+                <div class="muted-small">Температура (°C)</div>
+                <div id="tempVal" style="font-weight:700;font-size:18px">—</div>
+                <div class="bar"><i id="tempBar" style="width:10%"></i></div>
+              </div>
+              <div class="sensor">
+                <div class="muted-small">Влажность (%)</div>
+                <div id="humVal" style="font-weight:700;font-size:18px">—</div>
+                <div class="bar"><i id="humBar" style="width:10%"></i></div>
+              </div>
+              <div class="sensor">
+                <div class="muted-small">Влажность почвы (%)</div>
+                <div id="soilVal" style="font-weight:700;font-size:18px">—</div>
+                <div class="bar"><i id="soilBar" style="width:10%"></i></div>
+              </div>
+            </div>
+            <div style="margin-top:10px" class="tiny">Симуляция: данные обновляются каждую секунду. Можно остановить/запустить.</div>
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button id="btnSimToggle">Остановить симуляцию</button>
+              <button id="btnExportSim">Экспорт JSON</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Небольшая панель логов/метрик -->
+      <section style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="panel" style="flex:1 1 420px">
+          <h3>Лог событий</h3>
+          <div id="eventLog" style="max-height:200px;overflow:auto;font-size:12px;padding-top:6px" aria-live="polite"></div>
+        </div>
+
+        <div class="panel" style="flex:1 1 220px">
+          <h3>Краткая статистика</h3>
+          <div class="muted-small">Последнее обновление</div>
+          <div id="lastUpdated" style="font-weight:700;margin-top:6px">—</div>
+          <div style="height:8px"></div>
+          <div class="muted-small">Средняя загрузка сети</div>
+          <div id="netLoad" class="big-number">—</div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer" role="contentinfo">
+    <div id="status" style="letter-spacing: 5px;cursor: pointer;">ГОТОВ &nbsp; <i class="fas fa-square-check" style="color:rgb(var(--accent1))"></i></div>
+    <!--<div class="small">OctoCore — AI capture & decentralized storage</div>-->
+    <div style="margin-left:auto;letter-spacing: 5px;cursor: pointer;" id="statusText">NODES : <i class="fas fa-network-wired"></i> • LINKS : <i class="fas fa-link"></i> • PACKETS : <i class="fas fa-envelopes-bulk"></i></div>
+  </footer>
+
+<script>
+/*
+  Скрипт отвечает за:
+  - симуляцию метрик Filecoin / IPFS / Server
+  - управление веб-камерой (getUserMedia)
+  - загрузку IP-камеры (через <img>, может быть CORS)
+  - симуляцию сенсоров и экспорт данных
+  - простые UI-обновления и лог
+*/
+
+/* ----------------- УТИЛИТЫ ----------------- */
+function nowTime() { return new Date().toLocaleTimeString(); }
+function logEvent(msg) {
+  const el = document.getElementById('eventLog');
+  const line = document.createElement('div');
+  line.textContent = `[${nowTime()}] ${msg}`;
+  el.prepend(line);
+  // ограничим длину лога
+  while (el.children.length > 200) el.removeChild(el.lastChild);
+}
+
+/* ----------------- МЕТРИКИ (симуляция) ----------------- */
+let metricsInterval = null;
+let simRunning = true;
+const metricsState = {
+  filecoinStorage: 12000, // GiB
+  filecoinPrice: 0.012,   // FIL/day
+  filecoinDeals: 42,
+  ipfsNodes: 8,
+  ipfsLatency: 120,
+  pinnedCount: 540,
+  activeClients: 3,
+  cpuUsage: 12,
+  memUsage: 1024,
+  totalEvents: 0,
+  netLoad: 12
+};
+
+function updateMetricsUI() {
+  // Обновляем DOM интерактивно
+  document.getElementById('filecoinStorage').textContent = Math.round(metricsState.filecoinStorage) + ' GiB';
+  document.getElementById('filecoinPrice').textContent = metricsState.filecoinPrice.toFixed(4) + ' FIL';
+  document.getElementById('filecoinDeals').textContent = metricsState.filecoinDeals;
+
+  document.getElementById('ipfsNodes').textContent = metricsState.ipfsNodes;
+  document.getElementById('ipfsLatency').textContent = metricsState.ipfsLatency + ' ms';
+  document.getElementById('pinnedCount').textContent = metricsState.pinnedCount;
+
+  document.getElementById('activeClients').textContent = metricsState.activeClients;
+  document.getElementById('cpuUsage').textContent = metricsState.cpuUsage + ' %';
+  document.getElementById('memUsage').textContent = Math.round(metricsState.memUsage) + ' MB';
+
+  document.getElementById('lastUpdated').textContent = nowTime();
+  document.getElementById('netLoad').textContent = metricsState.netLoad + ' %';
+}
+
+function simulateMetricsTick() {
+  // Лёгкие случайные флуктуации (реалистично не выглядет как production)
+  metricsState.filecoinStorage += (Math.random()-0.3) * 10;
+  metricsState.filecoinPrice += (Math.random()-0.5) * 0.0002;
+  metricsState.filecoinDeals += (Math.random() < 0.05 ? 1 : 0);
+  metricsState.ipfsNodes = Math.max(1, Math.round(8 + Math.sin(Date.now()/60000)*2 + (Math.random()-0.5)*2));
+  metricsState.ipfsLatency = Math.max(20, Math.round(100 + (Math.random()-0.5)*40));
+  metricsState.pinnedCount += Math.round((Math.random()-0.4)*2);
+  metricsState.activeClients = Math.max(0, Math.round(3 + (Math.random()-0.4)*2));
+  metricsState.cpuUsage = Math.max(1, Math.round(10 + Math.random()*30));
+  metricsState.memUsage = Math.max(256, Math.round(900 + Math.random()*400));
+  metricsState.netLoad = Math.max(1, Math.round(5 + Math.random()*40));
+
+  updateMetricsUI();
+  logEvent('Metrics tick — обновлены показатели');
+}
+
+/* Запуск/остановка симуляции метрик */
+function startMetrics() {
+  if(metricsInterval) clearInterval(metricsInterval);
+  metricsInterval = setInterval(simulateMetricsTick, 2000);
+  simulateMetricsTick();
+}
+startMetrics();
+
+/* ----------------- ВЕБ-КАМЕРА ----------------- */
+let webcamStream = null;
+const videoEl = document.getElementById('webcam');
+const camStatus = document.getElementById('camStatus');
+
+document.getElementById('btnStartCam').addEventListener('click', async () => {
+  try {
+    // Запрос разрешения у пользователя (браузер покажет запрос)
+    webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width:1280, height:720 }, audio:false });
+    videoEl.srcObject = webcamStream;
+    camStatus.textContent = 'Статус: подключено';
+    logEvent('Веб-камера включена');
+  } catch (e) {
+    camStatus.textContent = 'Ошибка доступа к камере';
+    logEvent('Ошибка веб-камеры: ' + (e && e.message));
+  }
+});
+document.getElementById('btnStopCam').addEventListener('click', () => {
+  if(webcamStream) {
+    webcamStream.getTracks().forEach(t=>t.stop());
+    videoEl.srcObject = null;
+    webcamStream = null;
+    camStatus.textContent = 'Статус: остановлено';
+    logEvent('Веб-камера остановлена');
+  }
+});
+
+/* ----------------- IP-КАМЕРА (простая загрузка снимка) ----------------- */
+const ipViewer = document.getElementById('ipViewer');
+const ipStatus = document.getElementById('ipStatus');
+document.getElementById('btnLoadIP').addEventListener('click', () => {
+  const url = document.getElementById('ipUrl').value.trim();
+  if(!url){ ipStatus.textContent = 'Введите URL камеры'; return; }
+  // Просто подставляем URL в <img> — учтите CORS и типы потоков (MJPEG / snapshot)
+  ipViewer.src = url;
+  ipStatus.textContent = 'Загрузка...';
+  ipViewer.onload = () => { ipStatus.textContent = 'Поток загружен'; logEvent('IP-камера: загружен источник ' + url); };
+  ipViewer.onerror = (e) => { ipStatus.textContent = 'Не удалось загрузить (CORS/URL)'; logEvent('IP-камера: ошибка загрузки ' + url); };
+});
+document.getElementById('btnClearIP').addEventListener('click', () => {
+  ipViewer.src = '';
+  document.getElementById('ipUrl').value = '';
+  ipStatus.textContent = 'Статус: —';
+  logEvent('IP-камера очищена');
+});
+
+/* ----------------- СИМУЛЯЦИЯ ДАТЧИКОВ (агро) ----------------- */
+let sensorTimer = null;
+const sensorsHistory = [];
+
+function simulateSensors() {
+  const temp = +(18 + Math.sin(Date.now()/60000)*2 + (Math.random()-0.5)*2).toFixed(1);
+  const hum = +(45 + (Math.random()-0.5)*12).toFixed(0);
+  const soil = +(30 + (Math.random()-0.5)*20).toFixed(0);
+
+  document.getElementById('tempVal').textContent = temp + ' °C';
+  document.getElementById('humVal').textContent = hum + ' %';
+  document.getElementById('soilVal').textContent = soil + ' %';
+
+  document.getElementById('tempBar').style.width = Math.min(100, 50 + (temp-18)*3) + '%';
+  document.getElementById('humBar').style.width = Math.min(100, hum) + '%';
+  document.getElementById('soilBar').style.width = Math.min(100, soil) + '%';
+
+  sensorsHistory.push({ ts: Date.now(), temp, hum, soil });
+  if(sensorsHistory.length > 600) sensorsHistory.shift();
+  // логируем каждую 5-ю запись
+  if(sensorsHistory.length % 5 === 0) logEvent('Sensors: обновлены показания');
+}
+
+function startSensors() {
+  if(sensorTimer) clearInterval(sensorTimer);
+  sensorTimer = setInterval(simulateSensors, 1000);
+  simulateSensors();
+}
+startSensors();
+
+document.getElementById('btnSimToggle').addEventListener('click', (e) => {
+  simRunning = !simRunning;
+  if(simRunning) { startSensors(); e.target.textContent = 'Остановить симуляцию'; logEvent('Симуляция датчиков запущена'); }
+  else { clearInterval(sensorTimer); sensorTimer = null; e.target.textContent = 'Запустить симуляцию'; logEvent('Симуляция датчиков остановлена'); }
+});
+
+document.getElementById('btnExportSim').addEventListener('click', () => {
+  const payload = JSON.stringify(sensorsHistory.slice(-200), null, 2);
+  const blob = new Blob([payload], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'sensors_history.json'; a.click();
+  URL.revokeObjectURL(url);
+  logEvent('Экспорт симуляции: сохранён JSON');
+});
+
+/* ----------------- ПРОСТОЙ MOCK: Подключение "кошелька" (имитация) --------------- */
+/* Примечание: здесь не реализован MetaMask внутри Tauri. Для прототипа мы эмулируем адрес
+   или можно интегрировать WalletConnect/ethers.js в полноценный продукт. */
+document.getElementById('btnConnectWallet').addEventListener('click', () => {
+  // Для прототипа — генерируем фиктивный адрес (не приватный ключ)
+  const fake = '0x' + Math.random().toString(16).slice(2,10).padEnd(40,'0');
+  document.getElementById('userAddr').textContent = fake.slice(0,8) + '…' + fake.slice(-6);
+  logEvent('Кошелек подключен (эмуляция): ' + fake);
+});
+
+/* ----------------- METRICS LOGIC: возможность вручную увеличить события ------------- */
+let manualEventId = 0;
+document.getElementById('ipViewer').addEventListener('click', () => {
+  // демонстрация генерации события — пользователь кликнул IP-поток
+  manualEventId++;
+  logEvent('User clicked IP viewer — генерируем событие #' + manualEventId);
+  metricsState.totalEvents += 1;
+});
+
+/* ----------------- Обновление UI каждые N секунд (логика метрик интегрирована выше) ------------ */
+setInterval(() => {
+  document.getElementById('activeClients').textContent = metricsState.activeClients;
+  document.getElementById('cpuUsage').textContent = metricsState.cpuUsage + ' %';
+  document.getElementById('memUsage').textContent = Math.round(metricsState.memUsage) + ' MB';
+  document.getElementById('lastUpdated').textContent = nowTime();
+}, 3000);
+
+/* Инициализация UI */
+updateMetricsUI();
+logEvent('Панель загружена — готово к работе');
+</script>
+
+</body>
+</html>
