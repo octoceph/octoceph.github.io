@@ -369,7 +369,10 @@
   <!-- FOOTER -->
   <footer class="footer" role="contentinfo">
     <div id="status" style="letter-spacing: 5px;cursor: pointer;">ГОТОВ <i class="fas fa-check"></i></div>
-    <div style="margin-left:auto;letter-spacing: 5px;cursor: pointer;" id="statusText">NODES : <i class="fas fa-network-wired"></i> • LINKS : <i class="fas fa-link"></i> • PACKETS : <i class="fas fa-envelopes-bulk"></i></div>
+    <div style="margin-left:auto;letter-spacing: 5px;cursor: pointer;" id="statusText">
+   NODES : <i class="fas fa-network-wired"></i><!-- Тут должна быть статистика из <div id="filecoinDeals" class="big-number"></div>-->
+ • LINKS : <i class="fas fa-link"></i><!-- Тут должна быть статистика из <div id="ipfsNodes" class="big-number"></div> -->
+ • PACKETS : <i class="fas fa-envelopes-bulk"></i><!-- Тут должна быть статистика отправленных и или принятых пакетов (Подумай что именно и как тут отображать - я предлогаю добавить стрелочки - вверх это отправленные пакеты, вниз это принятые пакете) --></div>
   </footer>
 
 <script>
