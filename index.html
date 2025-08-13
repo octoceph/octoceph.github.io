@@ -23,6 +23,13 @@
     --left-width: 260px;
     --header-h: 64px;
     --footer-h: 48px;
+
+    --panel-bg: #0e1624;
+    --glass: rgba(255,255,255,0.03);
+    --muted: rgba(255,255,255,0.55);
+    --accent: #10a37f;
+    --user-grad: linear-gradient(90deg,#2b6ef6,#6b8dfb);
+    --radius: 10px;
   }
 
   /* Убираем веб-скроллбар (как просили) */
@@ -182,14 +189,7 @@
 
 
 
-:root{
-  --panel-bg: #0e1624;
-  --glass: rgba(255,255,255,0.03);
-  --muted: rgba(255,255,255,0.55);
-  --accent: #10a37f;
-  --user-grad: linear-gradient(90deg,#2b6ef6,#6b8dfb);
-  --radius: 10px;
-}
+
 
 /* Общий контейнер чата (вставлен под логотип/кнопки) */
 .chat-wrap {
@@ -200,13 +200,13 @@
 
 /* Панель чата */
 .chat-panel {
-  background: var(--panel-bg);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  height: 76vh;          /* можно менять под ваши требования */
-  min-height: 420px;
-  box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+   background: var(--panel-bg);
+   border-radius: 10px;
+   display: flex;
+   flex-direction: column;
+   height: auto;          /* можно менять под ваши требования */
+   min-height: 300px;
+/* box-shadow: 0 8px 30px rgba(2,6,23,0.6); */
   padding: 0;            /* заголовок/сообщения/инпут управляют отступами */
 }
 
@@ -391,8 +391,8 @@
       <div class="chat-wrap" style="margin-top:12px">
         <div class="chat-panel" role="application" aria-label="ChatGPT-style conversation inside sidebar">
           <div class="chat-header">
-            <div class="title">ИИ</div>
-            <div class="sub">диалоговый чат</div>
+            <div class="title">OctoAI</div>
+       <!--<div class="sub">диалоговый чат</div>-->
           </div>
           <div class="messages" id="messages" tabindex="0">
             <div class="msg assistant" data-role="assistant">
@@ -401,7 +401,7 @@
           </div>
 
           <div class="input-wrap">
-            <input id="prompt" class="ai-input" type="text" placeholder="Напишите сообщение..." aria-label="Введите сообщение" />
+            <input id="prompt" class="ai-input" type="text" placeholder="Пишите" aria-label="Пишите, Введите сообщение" />
             <button id="btnSend" class="btn send" title="Отправить">Отправить</button>
           </div>
         </div>
