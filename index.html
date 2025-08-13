@@ -270,7 +270,7 @@
           <h3>Серверные метрики</h3>
           <div class="metric"><div class="muted-small">Активных клиентов</div><div id="activeClients" class="big-number">—</div></div>
           <div class="metric"><div class="muted-small">CPU %</div><div id="cpuUsage" class="big-number">—</div></div>
-          <div class="metric"><div class="muted-small">Память (MB)</div><div id="memUsage" class="big-number">—</div></div>
+          <div class="metric"><div class="muted-small">RAM (MB)</div><div id="memUsage" class="big-number">—</div></div>
         </div>
 
 
@@ -364,11 +364,12 @@
 
   <!-- FOOTER -->
   <footer class="footer" role="contentinfo">
-    <div id="status" style="letter-spacing: 5px;cursor: pointer;">ГОТОВ <i class="fas fa-check"></i></div>
+    <div id="status" style="letter-spacing: 5px;cursor: pointer;">NETWORK <i class="fas fa-check"></i> <!-- Тут должна быть статистика по ОБЩЕЙ ЗАГРУЗКЕ СЕТИ из <div id="netLoad" class="big-number"></div> -->
+  </div>
     <div style="margin-left:auto;letter-spacing: 5px;cursor: pointer;" id="statusText">
    GPU <i class="fas fa-server"></i><!-- Тут должна быть статистика по GPU -->
  • CPU <i class="fas fa-microchip"></i><!-- Тут должна быть статистика по CPU -->
- • RAM <i class="fas fa-memory"></i><!-- Тут должна быть статистика по использованию оперативной памяти -->
+ • RAM <i class="fas fa-memory"></i><!-- Тут должна быть статистика по использованию оперативной памяти из <div id="memUsage" class="big-number"></div> -->
  • DISK <i class="fas fa-database"></i><!-- Тут должна быть статистика по всем доступным физичским носителям -->
  • HDD <i class="fas fa-hard-drive"></i><!-- Тут должна быть статистика по HDD -->
  • SSD <i class="fas fa-sd-card"></i><!-- Тут должна быть статистика по SSD -->
