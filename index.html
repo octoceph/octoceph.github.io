@@ -175,6 +175,14 @@
 .codeEditior { }
 .terminal { }
 
+.ai-input input {
+    width: 100%;color: #fff;
+    padding: 8px 36px 8px 10px;
+    border: 1px solid rgba(125,200,255,0.08);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius:14px;
+    }
+
   /* responsive tweaks */
   @media (max-width:980px){
     .left{ display:none; }
@@ -205,16 +213,17 @@
     </nav>
 
 
-      <div class="idePanel">
+        <!-- AI -->
+      <div class="AiPanel">
         <!-- Здесь должен быть диалог с AI (LLM подключенный по API) который всё анализирует -->
-         <div class="llm">
+         <div class="LLM">
 
+      <input type="text" placeholder=" >_">
 
          </div>
        <!-- Конец AI который всё анализирует -->
-       </div> 
-      </div>
-
+      </div> 
+       <!-- КОНЕЦ AI -->
 
 
 
