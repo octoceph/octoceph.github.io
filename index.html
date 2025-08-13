@@ -73,7 +73,7 @@
 
   /* Меню-элементы */
   .menu { margin-top:8px; display:flex; flex-direction:column; gap:8px; }
-  .menu button {
+  .menu button, btn send {
     display:flex; align-items:center; gap:10px;
     padding:10px 12px; border-radius:10px; border:1px solid transparent;
     background: rgba(255,255,255,0.01); color:var(--muted); cursor:pointer; text-align:left;
@@ -316,11 +316,6 @@
 .btn:active { transform: translateY(1px); }
 
 /* Кнопка отправить — выразительная */
-.btn.send {
-  background: linear-gradient(90deg,#1f9fff,#3bb0ff);
-  color: #fff;
-  border: none;
-}
 
 /* Индикатор набора (точки) */
 .typing { display: inline-block; height: 10px; }
