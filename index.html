@@ -488,7 +488,7 @@ document.getElementById('btnStopCam').addEventListener('click', () => {
 });
 
 /* ----------------- IP-КАМЕРА (простая загрузка снимка) ----------------- */
-const ipViewer = document.getElementById('ipViewer');
+/* const ipViewer = document.getElementById('ipViewer');
 const ipStatus = document.getElementById('ipStatus');
 document.getElementById('btnLoadIP').addEventListener('click', () => {
   const url = document.getElementById('ipUrl').value.trim();
@@ -502,9 +502,9 @@ document.getElementById('btnLoadIP').addEventListener('click', () => {
 document.getElementById('btnClearIP').addEventListener('click', () => {
   ipViewer.src = '';
   document.getElementById('ipUrl').value = '';
-  ipStatus.textContent = 'Статус: —';
+  ipStatus.textContent = 'Статус: — ';
   logEvent('IP-камера очищена');
-});
+}); */
 
 /* ----------------- СИМУЛЯЦИЯ ДАТЧИКОВ (агро) ----------------- */
 let sensorTimer = null;
