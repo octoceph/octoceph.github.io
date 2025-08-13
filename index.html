@@ -180,6 +180,181 @@
     width: 77%;color: #fff;padding: 8px 36px 8px 10px;border: 1px solid transparent;background: rgba(255, 255, 255, 0.05);border-radius:7px;
     }
 
+
+
+:root{
+  --panel-bg: #0e1624;
+  --glass: rgba(255,255,255,0.03);
+  --muted: rgba(255,255,255,0.55);
+  --accent: #10a37f;
+  --user-grad: linear-gradient(90deg,#2b6ef6,#6b8dfb);
+  --radius: 10px;
+}
+
+/* Общий контейнер чата (вставлен под логотип/кнопки) */
+.chat-wrap {
+  margin-top: 12px;
+  border-radius: var(--radius);
+  overflow: hidden; /* обрезаем тень/контент при необходимости */
+}
+
+/* Панель чата */
+.chat-panel {
+  background: var(--panel-bg);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 76vh;          /* можно менять под ваши требования */
+  min-height: 420px;
+  box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+  padding: 0;            /* заголовок/сообщения/инпут управляют отступами */
+}
+
+/* Заголовок панели */
+.chat-header{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+/* Заголовок - название и подпись */
+.chat-header .title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #e6eef8;
+}
+.chat-header .sub {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Область сообщений */
+.messages {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* для плавного автоскролла (опционально) */
+  scroll-behavior: smooth;
+}
+
+/* Сообщение */
+.msg {
+  max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--glass);
+  backdrop-filter: blur(4px);
+  line-height: 1.45;
+  color: #e6eef8;
+  word-break: break-word;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset;
+}
+
+/* Сообщение ассистента (слева) */
+.msg.assistant {
+  align-self: flex-start;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 10px;
+}
+
+/* Сообщение пользователя (справа) */
+.msg.user {
+  align-self: flex-end;
+  background: var(--user-grad);
+  color: #fff;
+  border-top-right-radius: 6px;
+  border-top-left-radius: 10px;
+}
+
+/* Область ввода */
+.input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid rgba(255,255,255,0.03);
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+}
+
+/* Инпут */
+.ai-input {
+  flex: 1;
+  color: #fff;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  caret-color: var(--accent);
+}
+.ai-input::placeholder { color: rgba(255,255,255,0.45); }
+
+/* Инпут: фокус */
+.ai-input:focus {
+  box-shadow: 0 0 0 3px rgba(16,163,127,0.08);
+  border-color: rgba(255,255,255,0.05);
+}
+
+/* Кнопки */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.03);
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.btn:active { transform: translateY(1px); }
+
+/* Кнопка отправить — выразительная */
+.btn.send {
+  background: linear-gradient(90deg,#1f9fff,#3bb0ff);
+  color: #fff;
+  border: none;
+}
+
+/* Индикатор набора (точки) */
+.typing { display: inline-block; height: 10px; }
+.dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  margin: 0 2px;
+  opacity: 0;
+  animation: chat-blink 1.2s infinite;
+}
+.dot:nth-child(2){ animation-delay: 0.15s; }
+.dot:nth-child(3){ animation-delay: 0.3s; }
+
+@keyframes chat-blink {
+  0% { opacity: 0; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+  60% { opacity: 0.4; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* Адаптация для узкой панели: уменьшаем отступы/шрифты */
+@media (max-width: 360px) {
+  .chat-header { padding: 10px; gap: 8px; }
+  .messages { padding: 8px; gap: 8px; }
+  .ai-input { font-size: 12px; padding: 7px 10px; }
+  .btn { padding: 6px 8px; font-size: 12px; }
+}
+
+
   /* responsive tweaks */
   @media (max-width:980px){
     .left{ display:none; }
