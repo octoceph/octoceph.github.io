@@ -1,0 +1,211 @@
+
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard — GitHub Pages + MAX auth (demo)</title>
+  <meta name="description" content="Пример дашборда для GitHub Pages с фиксированным левым меню и входом через мессенджер MAX (демо-реализация)">
+  <style>
+    :root{--sidebar-w:260px;--accent:#0f62fe;--bg:#f5f7fb}
+    *{box-sizing:border-box}
+    html,body,#app{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#111}
+
+    /* SIDEBAR */
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:#fff;border-right:1px solid #e6e9ef;padding:18px 16px;display:flex;flex-direction:column;gap:18px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#7b61ff);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+    .app-title{font-weight:700}
+    nav{flex:1}
+    .nav-item{display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;color:#2b3440;text-decoration:none}
+    .nav-item:hover{background:#f0f4ff;color:var(--accent);cursor:pointer}
+    .nav-item.active{background:#eef6ff;color:var(--accent);font-weight:600}
+    .sidebar-footer{font-size:13px;color:#667085}
+
+    /* MAIN */
+    .main{margin-left:var(--sidebar-w);padding:24px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:16px}
+    .search{flex:1;max-width:420px}
+    .card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:18px}
+    .card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.04);border:1px solid #eef2ff}
+    .table{margin-top:18px;background:#fff;padding:12px;border-radius:12px;border:1px solid #eef2ff}
+
+    /* Responsive */
+    @media (max-width:900px){:root{--sidebar-w:76px}.sidebar{width:76px;padding:12px}.app-title,.sidebar-footer{display:none}.main{margin-left:76px}.card-grid{grid-template-columns:repeat(1,1fr)}}
+
+    /* Login badge */
+    .user-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#0f1724;color:#fff}
+    .btn{display:inline-flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid #e6e9ef;color:#111}
+  </style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar" role="navigation" aria-label="Главное меню">
+    <div class="brand">
+      <div class="logo">OC</div>
+      <div>
+        <div class="app-title">OctoCore</div>
+        <div style="font-size:12px;color:#667085">GitHub Pages demo</div>
+      </div>
+    </div>
+
+    <nav>
+      <a class="nav-item active" data-view="dashboard">📊 Панель</a>
+      <a class="nav-item" data-view="reports">📁 Отчёты</a>
+      <a class="nav-item" data-view="users">👥 Пользователи</a>
+      <a class="nav-item" data-view="settings">⚙️ Настройки</a>
+    </nav>
+
+    <div>
+      <div style="margin-bottom:10px">
+        <!-- Кнопка для входа через MAX -->
+        <button id="max-login" class="btn" aria-label="Войти через MAX">🔐 Войти через MAX</button>
+        <button id="demo-login" class="btn ghost" style="margin-left:8px">👤 Демо</button>
+      </div>
+      <div class="sidebar-footer">Версия demo • Статус: <strong id="auth-status">не в системе</strong></div>
+    </div>
+  </aside>
+
+  <main class="main" role="main">
+    <div class="top">
+      <h1 id="view-title">Панель</h1>
+      <div style="display:flex;gap:12px;align-items:center">
+        <input class="search" type="search" placeholder="Поиск..." aria-label="Поиск">
+        <div id="user-area"></div>
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card"><h3>Показатель 1</h3><p id="metric-1">—</p></div>
+      <div class="card"><h3>Показатель 2</h3><p id="metric-2">—</p></div>
+      <div class="card"><h3>Показатель 3</h3><p id="metric-3">—</p></div>
+    </div>
+
+    <div class="table">
+      <h3>Последние события</h3>
+      <table style="width:100%;border-collapse:collapse">
+        <thead style="text-align:left;color:#6b7280;font-size:13px"><tr><th>Время</th><th>Пользователь</th><th>Действие</th></tr></thead>
+        <tbody id="events-body">
+          <tr><td>—</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <section style="margin-top:18px;color:#475569;font-size:13px">
+      <strong>Инструкции по интеграции с MAX</strong>
+      <ol>
+        <li>MAX предоставляет <em>Bot API / SDK</em> и (в некоторых сценариях) OAuth-подобные эндпоинты для авторизации. Для production-авторизации требуется серверный компонент для безопасного обмена <code>authorization_code</code> на токен.</li>
+        <li>GitHub Pages — статический хостинг: серверный обмен кодов без дополнительного бэкенда невозможен. Используйте serverless-функции (Vercel, Netlify Functions, Cloud Functions) или собственный API.</li>
+        <li>В демо-кнопке реализована <em>клиентская</em> попытка открыть OAuth-popup и считать код, а также "демо-вход", который эмулирует пользователя (для локального теста).</li>
+      </ol>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ---------------------------------------------------------
+   Настройки: замените на реальные значения вашего приложения
+   Если MAX предоставляет OAuth-поддержку, укажите AUTH_ENDPOINT
+   и CLIENT_ID. Если нет — используйте flow через бота + webhook
+   (для этого нужен сервер, который будет обрабатывать webhooks).
+   ---------------------------------------------------------*/
+const CONFIG = {
+  // Пример: "https://max.ru/oauth/authorize"
+  MAX_AUTH_ENDPOINT: 'https://MAX_AUTH_ENDPOINT_HERE',
+  CLIENT_ID: 'YOUR_MAX_CLIENT_ID',
+  REDIRECT_URI: location.origin + location.pathname, // GitHub Pages URL
+  SCOPES: 'openid profile',
+}
+
+// Утилиты
+function qs(name){return new URLSearchParams(location.search).get(name)}
+
+// Навигация
+document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click', ()=>{
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('view-title').innerText = el.dataset.view[0].toUpperCase() + el.dataset.view.slice(1);
+}))
+
+// AUTH: открываем popup и ждём редиректа на наш REDIRECT_URI
+function openMaxOAuth(){
+  if(CONFIG.MAX_AUTH_ENDPOINT.includes('MAX_AUTH_ENDPOINT')){
+    alert('Пожалуйста, настройте CONFIG.MAX_AUTH_ENDPOINT и CLIENT_ID в коде перед использованием OAuth.\n\nДля демо нажмите "Демо".');
+    return;
+  }
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('max_oauth_state', state);
+  const authUrl = `${CONFIG.MAX_AUTH_ENDPOINT}?response_type=code&client_id=${encodeURIComponent(CONFIG.CLIENT_ID)}&redirect_uri=${encodeURIComponent(CONFIG.REDIRECT_URI)}&scope=${encodeURIComponent(CONFIG.SCOPES)}&state=${encodeURIComponent(state)}`;
+  const popup = window.open(authUrl,'_blank','width=500,height=700');
+
+  // poll the popup until it redirects back to our origin
+  const poll = setInterval(()=>{
+    try{
+      if(!popup || popup.closed){ clearInterval(poll); return }
+      // Можно безопасно читать popup.location только если он на том же origin
+      if(popup.location.origin === location.origin){
+        const params = new URLSearchParams(popup.location.search);
+        const code = params.get('code');
+        const gotState = params.get('state');
+        if(code){
+          popup.close();
+          clearInterval(poll);
+          handleAuthCode(code, gotState);
+        }
+      }
+    }catch(e){
+      // cross-origin пока редирект не вернулся — нормально
+    }
+  },500);
+}
+
+function handleAuthCode(code, gotState){
+  const expected = sessionStorage.getItem('max_oauth_state');
+  if(!expected || expected !== gotState){
+    alert('State не совпадает — возможная CSRF-атака. Прекращаю.');
+    return;
+  }
+  // ВАЖНО: обмен code -> token должен происходить на сервере!
+  // Ниже — только демонстрация: мы сохраним код в localStorage и отметим пользователя как вошедшего.
+  localStorage.setItem('max_demo_code', code);
+  setLoggedIn({name:'MAX user', id:'demo-'+code.slice(0,6), token:'demo-token-123'});
+  // Если у вас есть serverless-эндпоинт, можно сделать fetch сюда:
+  // fetch('/.netlify/functions/exchange', {method:'POST', body: JSON.stringify({code})})
+}
+
+function setLoggedIn(user){
+  document.getElementById('auth-status').innerText = 'в системе';
+  document.getElementById('user-area').innerHTML = `<div class=\"user-pill\">👤 ${escapeHtml(user.name)} <button id=\"logout\" style=\"margin-left:8px;border:0;background:transparent;color:#fff;cursor:pointer\">⎋</button></div>`;
+  document.getElementById('metric-1').innerText = '42';
+  document.getElementById('metric-2').innerText = '128';
+  document.getElementById('metric-3').innerText = '7.4%';
+  const tbody = document.getElementById('events-body');
+  tbody.innerHTML = `<tr><td>${new Date().toLocaleString()}</td><td>${escapeHtml(user.name)}</td><td>Вошёл через MAX</td></tr>`;
+  document.getElementById('logout').addEventListener('click', ()=>{ localStorage.removeItem('max_demo_code'); location.reload() });
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m]))}
+
+// Demo login (кнопка без интеграции)
+document.getElementById('demo-login').addEventListener('click', ()=>{
+  setLoggedIn({name:'Демо Пользователь', id:'demo-1', token:'demo-token'});
+});
+
+// Реальная кнопка OAuth
+document.getElementById('max-login').addEventListener('click', ()=>{
+  openMaxOAuth();
+});
+
+// При загрузке — если в URL есть ?code=... и state=..., обработаем (полезно для редиректа без popup)
+window.addEventListener('load', ()=>{
+  const code = qs('code'); const state = qs('state');
+  if(code){
+    // Очистим параметры из URL чтобы не мешали
+    history.replaceState({}, document.title, location.pathname);
+    handleAuthCode(code, state);
+  }
+});
+</script>
+</body>
+</html>
