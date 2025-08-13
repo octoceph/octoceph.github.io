@@ -596,13 +596,13 @@ document.getElementById('btnConnectWallet').addEventListener('click', () => {
 });
 
 /* ----------------- METRICS LOGIC: возможность вручную увеличить события ------------- */
-let manualEventId = 0;
+/* let manualEventId = 0;
 document.getElementById('ipViewer').addEventListener('click', () => {
   // демонстрация генерации события — пользователь кликнул IP-поток
   manualEventId++;
   logEvent('User clicked IP viewer — генерируем событие #' + manualEventId);
   metricsState.totalEvents += 1;
-});
+}); */
 
 /* ----------------- Обновление UI каждые N секунд (логика метрик интегрирована выше) ------------ */
 setInterval(() => {
