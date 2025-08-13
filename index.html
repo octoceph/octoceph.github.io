@@ -643,7 +643,7 @@
 
       setTimeout(()=>{
         typingWrap.remove();
-        const reply = 'Ответ от AI: «' + userText + '»';
+        const reply = 'Ответ от OctoAI: «' + userText + '»';
         addMessage('assistant', reply);
       }, 700 + Math.min(userText.length*18, 1100));
     }
