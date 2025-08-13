@@ -171,8 +171,8 @@
   .muted-small { color: rgba(230,246,255,0.6); font-size:12px; }
   .tiny { font-size:11px; color:rgba(230,246,255,0.55); }
 
-
 .idePanel {position: fixed;flex: unset !important;height: 285px;width: 219px;bottom: 420px;margin: 0;border: 0;background: transparent;border-radius: 8px;background: #101b36c2;}
+.codeEditior, .terminal { background: #091228;border-radius: 8px;padding: 15px;margin-top: 15px; }
 .codeEditior { }
 .terminal { }
 
@@ -186,13 +186,13 @@
 </head>
 <body>
 
-  <!-- ЛЕВОЕ МЕНЮ -->
+  <!-- ФИКСИРОВАННОЕ ЛЕВОЕ МЕНЮ -->
   <aside class="left" role="navigation" aria-label="Левое меню">
     <div class="logo">
       <img src="https://blockchainaccreditive.github.io/css/iokwa.svg" alt="logo">
       <div style="display:flex;flex-direction:column;line-height:1;">
         <strong>Octo Dashboard</strong>
-        <!--<span class="muted">Holographic Operations</span>-->
+    <!--<span class="muted">Holographic Operations</span>-->
       </div>
     </div>
 
@@ -206,9 +206,8 @@
     </nav>
 
       <div class="idePanel">
-        <h3>Терминал / Код</h3>
+        <!--IDE -->
          <div class="ide">
-
          <div class="codeEditior">
           <h4> Тут Текстовый Редатктор</h4>
          </div>
@@ -216,7 +215,8 @@
          <div class="terminal">
           <h4> Тут Терминал</h4>
          </div>
-       </div>
+       </div> 
+      <!-- КОНЕЦ IDE -->
       </div>
 
         <div class="panel log" style="flex:1 1 420px">
@@ -310,7 +310,7 @@
 
       <!-- Источники: камеры и др. -->
       <section>
-        <h3 style="margin:0 0 8px 0; color:rgb(var(--accent2))"><!--Источники:--><i class="fas fa-plus"></i></h3>
+        <h3 style="margin: 0px 0px 12px 75px; color:rgb(var(--accent2))"><!--Источники:--><i class="fas fa-plus"></i></h3>
         <div class="sources-row">
           <div class="camera panel">
             <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">USB / IP / RTSP / MJPEG /</h4>
