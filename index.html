@@ -589,6 +589,181 @@
  • PACKETS <i class="fas fa-envelopes-bulk"></i><!-- Тут должна быть статистика отправленных и или принятых пакетов (Подумай что именно и как тут отображать - я предлогаю добавить стрелочки - вверх это отправленные пакеты, вниз это принятые пакете) --></div>
   </footer>
 
+
+
+
+  <script>
+    // Grab elements (these IDs MUST exist)
+    let messagesEl = document.getElementById('messages');
+    let input = document.getElementById('prompt');
+    let btn = document.getElementById('btnSend');
+
+    // Fallback: if any piece is missing, auto-create a minimal chat to avoid runtime errors
+    (function ensureChatIds(){
+      if(messagesEl && input && btn) return; // all good
+      console.warn('[chat] Some required nodes missing — creating fallback nodes');
+      const sidebar = document.querySelector('.sidebar');
+      const wrap = document.createElement('div'); wrap.className='chat-wrap';
+      const panel = document.createElement('div'); panel.className='chat-panel';
+      const msgs = document.createElement('div'); msgs.className='messages'; msgs.id='messages';
+      const inputWrap = document.createElement('div'); inputWrap.className='input-wrap';
+      const inp = document.createElement('input'); inp.id='prompt'; inp.className='ai-input'; inp.placeholder='Напишите сообщение...';
+      const b = document.createElement('button'); b.id='btnSend'; b.className='btn send'; b.textContent='Отправить';
+      inputWrap.appendChild(inp); inputWrap.appendChild(b);
+      panel.appendChild(msgs); panel.appendChild(inputWrap); wrap.appendChild(panel);
+      (sidebar||document.body).appendChild(wrap);
+      messagesEl = document.getElementById('messages');
+      input = document.getElementById('prompt');
+      btn = document.getElementById('btnSend');
+    })();
+
+    function addMessage(role, text, options={}){
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ' + (role==='user' ? 'user' : 'assistant');
+      if(options.meta){
+        const meta = document.createElement('div'); meta.className='meta'; meta.textContent = options.meta;
+        wrap.appendChild(meta);
+      }
+      const body = document.createElement('div');
+      if (options.isHTML) body.innerHTML = text; else body.textContent = text;
+      wrap.appendChild(body);
+      messagesEl.appendChild(wrap);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return wrap;
+    }
+
+    function simulateAssistantReply(userText){
+      const typingWrap = document.createElement('div');
+      typingWrap.className = 'msg assistant';
+      const dots = document.createElement('div'); dots.className='typing'; dots.innerHTML='<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      typingWrap.appendChild(dots);
+      messagesEl.appendChild(typingWrap);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      setTimeout(()=>{
+        typingWrap.remove();
+        const reply = 'Ответ от AI: «' + userText + '»';
+        addMessage('assistant', reply);
+      }, 700 + Math.min(userText.length*18, 1100));
+    }
+
+    function send(){
+      const v = input.value.trim();
+      if(!v) return;
+      addMessage('user', v);
+      input.value='';
+      simulateAssistantReply(v);
+      input.focus();
+    }
+
+    // Wire events (guarded)
+    if(btn) btn.addEventListener('click', send);
+    if(input) input.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+    });
+
+    // ---------------- TESTS ----------------
+    (function runTests(){
+      const out = document.getElementById('test-results');
+      const results = [];
+      function pass(name){results.push({name, ok:true});}
+      function fail(name, err){results.push({name, ok:false, err});}
+
+      // Test 1: required nodes exist
+      try{
+        if(messagesEl && input && btn) pass('DOM: элементы #messages, #prompt, #btnSend существуют');
+        else throw new Error('Не найдены один или несколько обязательных элементов');
+      }catch(e){ fail('DOM: обязательные элементы присутствуют', e.message); }
+
+      // Test 2: отправка по кнопке
+      try{
+        const before = messagesEl.querySelectorAll('.msg').length;
+        input.value = 'тест-кнопка';
+        btn.click();
+        const after = messagesEl.querySelectorAll('.msg.user').length;
+        if(after>0 && messagesEl.querySelectorAll('.msg').length>=before+1) pass('Логика: добавляется сообщение пользователя по клику кнопки');
+        else throw new Error('Сообщение пользователя не добавлено по клику');
+      }catch(e){ fail('Логика: отправка по кнопке', e.message); }
+
+      // Test 3: отправка по Enter
+      try{
+        const before = messagesEl.querySelectorAll('.msg').length;
+        input.value = 'тест-enter';
+        const ev = new KeyboardEvent('keydown', {key:'Enter', bubbles:true});
+        input.dispatchEvent(ev);
+        const after = messagesEl.querySelectorAll('.msg.user').length;
+        if(after>0 && messagesEl.querySelectorAll('.msg').length>=before+1) pass('Логика: добавляется сообщение по Enter');
+        else throw new Error('Сообщение по Enter не добавлено');
+      }catch(e){ fail('Логика: отправка по Enter', e.message); }
+
+      // --- Additional tests (do not modify existing ones) ---
+      // Test 4: Shift+Enter НЕ отправляет
+      try{
+        const beforeUsers = messagesEl.querySelectorAll('.msg.user').length;
+        input.value = 'shift-enter';
+        const ev2 = new KeyboardEvent('keydown', {key:'Enter', bubbles:true, shiftKey:true});
+        input.dispatchEvent(ev2);
+        const afterUsers = messagesEl.querySelectorAll('.msg.user').length;
+        if(afterUsers === beforeUsers) pass('Горячие клавиши: Shift+Enter не отправляет сообщение');
+        else throw new Error('Shift+Enter отправил сообщение, а не должен');
+      }catch(e){ fail('Горячие клавиши: Shift+Enter', e.message); }
+
+      // Test 5: Пустой ввод не отправляется по клику
+      try{
+        const beforeUsers = messagesEl.querySelectorAll('.msg.user').length;
+        input.value = '   ';
+        btn.click();
+        const afterUsers = messagesEl.querySelectorAll('.msg.user').length;
+        if(afterUsers === beforeUsers) pass('Валидатор: пустые сообщения не отправляются');
+        else throw new Error('Пустое сообщение было отправлено');
+      }catch(e){ fail('Валидатор: пустые сообщения', e.message); }
+
+      // Test 6: Поле ввода получает фокус после отправки
+      try{
+        input.value = 'focus-test';
+        btn.click();
+        if(document.activeElement === input) pass('UX: инпут получает фокус после отправки');
+        else throw new Error('Фокус не возвращён в поле ввода');
+      }catch(e){ fail('UX: фокус после отправки', e.message); }
+
+      // Test 7: Автоскролл вниз после большого сообщения
+      try{
+        const long = Array(50).fill('Очень длинное сообщение').join(' ');
+        addMessage('assistant', long);
+        const nearBottom = Math.abs((messagesEl.scrollTop + messagesEl.clientHeight) - messagesEl.scrollHeight) <= 2;
+        if(nearBottom) pass('Скролл: автопрокрутка к последнему сообщению работает');
+        else throw new Error('Автопрокрутка не сработала');
+      }catch(e){ fail('Скролл: автопрокрутка', e.message); }
+
+      // Render initial results (sync tests)
+      if(out){
+        out.innerHTML = '<div class="test"><span class="badge">SELF‑TEST</span> Автотесты чата:</div>' +
+          results.map(r=>`<div class="test"><span class="badge ${r.ok? 'ok':'bad'}">${r.ok? 'PASS':'FAIL'}</span> ${r.name}${r.ok? '' : ' — '+r.err}</div>`).join('');
+      } else {
+        console.table(results);
+      }
+
+      // Test 8 (async): индикатор набора исчезает
+      (function asyncTypingTest(){
+        const before = !!messagesEl.querySelector('.typing');
+        simulateAssistantReply('async-typing');
+        setTimeout(()=>{
+          const exists = !!messagesEl.querySelector('.typing');
+          const ok = before === false && exists === false; // не было до, появится кратко, затем исчезнет
+          const line = `<div class="test"><span class="badge ${ok? 'ok':'bad'}">${ok? 'PASS':'FAIL'}</span> Асинхронно: индикатор набора исчезает после ответа</div>`;
+          if(out){ out.insertAdjacentHTML('beforeend', line); }
+          else { console.log('Async Test 8:', ok? 'PASS' : 'FAIL'); }
+        }, 1500);
+      })();
+    })();
+  </script>
+
+
+
+
+
+
+
 <script>
 /*
   Скрипт отвечает за:
