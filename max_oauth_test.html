@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MAX OAuth Test (PKCE) — Demo</title>
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f7fafc;color:#0f1724;padding:28px}
+    .wrap{max-width:820px;margin:0 auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 6px 24px rgba(15,23,42,0.06)}
+    h1{margin:0 0 6px;font-size:20px}
+    p.lead{color:#475569;margin-top:0}
+    label{display:block;margin-top:12px;font-weight:600}
+    input[type=text], input[type=url]{width:100%;padding:10px;border-radius:8px;border:1px solid #e6edf3}
+    .row{display:flex;gap:12px}
+    .row > *{flex:1}
+    button{margin-top:12px;padding:10px 14px;border-radius:8px;border:0;background:#0f62fe;color:#fff;font-weight:700;cursor:pointer}
+    pre{background:#0b1220;color:#e6eef8;padding:12px;border-radius:8px;overflow:auto}
+    .hint{font-size:13px;color:#6b7280}
+    .ok{color:green}
+    .err{color:#b91c1c}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Тест авторизации через MAX (OAuth 2.0 + PKCE)</h1>
+    <p class="lead">Страница генерирует PKCE, открывает окно авторизации и — при поддержке CORS у токен-эндпоинта — пытается обменять код на токен прямо из браузера (для тестов). Для production рекомендуется выполнять обмен на сервере или serverless-функции.</p>
+
+    <label>Authorize endpoint (пример):</label>
+    <input id="authorize_endpoint" type="url" value="https://web.max.ru/oauth/authorize" placeholder="https://.../oauth/authorize">
+
+    <label>Token endpoint (пример):</label>
+    <input id="token_endpoint" type="url" value="https://web.max.ru/oauth/token" placeholder="https://.../oauth/token">
+
+    <div class="row">
+      <div>
+        <label>Client ID</label>
+        <input id="client_id" type="text" value="YOUR_CLIENT_ID">
+      </div>
+      <div>
+        <label>Redirect URI</label>
+        <input id="redirect_uri" type="url" value="">
+      </div>
+    </div>
+
+    <label>Scopes (space-separated)</label>
+    <input id="scopes" type="text" value="openid profile">
+
+    <button id="start">Start OAuth (open popup)</button>
+    <button id="start-nopop" style="background:#111827;margin-left:8px">Start (redirect)</button>
+
+    <section style="margin-top:18px">
+      <h3>Результаты</h3>
+      <div id="status" class="hint">Ожидание...</div>
+      <h4>Прямой обмен (если доступен):</h4>
+      <pre id="token-response">—</pre>
+      <h4>Последний код / состояние:</h4>
+      <pre id="last">—</pre>
+    </section>
+
+    <section style="margin-top:14px;font-size:13px;color:#475569">
+      <strong>Важно:</strong>
+      <ul>
+        <li>GitHub Pages — статический хостинг: безопаснее выполнять обмен <code>code → token</code> на сервере или serverless-функции. Для тестов PKCE позволяет обмен без client_secret, но endpoint должен поддерживать PKCE и CORS.</li>
+        <li>Если endpoint токена не разрешает CORS, используйте proxy / serverless (Netlify, Vercel, Cloud Functions) для обмена и сокрытия client_secret.</li>
+      </ul>
+    </section>
+  </div>
+
+<script>
+// PKCE helpers
+async function sha256(buffer){const b=new TextEncoder().encode(buffer);const h=await crypto.subtle.digest('SHA-256',b);return new Uint8Array(h)}
+function base64url(buffer){let s=Array.from(buffer).map(b=>String.fromCharCode(b)).join('');return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+async function pkceChallengeFromVerifier(v){const hashed=await sha256(v);return base64url(hashed)}
+function randString(len=64){const chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~';let out='';const rnd=new Uint8Array(len);crypto.getRandomValues(rnd);for(let i=0;i<len;i++)out+=chars[rnd[i]%chars.length];return out}
+
+function setStatus(msg,ok){const el=document.getElementById('status');el.innerText=msg;el.className=ok? 'ok' : 'err';}
+
+// start popup flow
+document.getElementById('start').addEventListener('click', async ()=>{
+  const AUTH = document.getElementById('authorize_endpoint').value.trim();
+  const TOKEN = document.getElementById('token_endpoint').value.trim();
+  const client_id = document.getElementById('client_id').value.trim();
+  const redirect_uri = document.getElementById('redirect_uri').value || location.origin + location.pathname;
+  const scopes = document.getElementById('scopes').value.trim() || '';
+  if(!AUTH || !client_id){alert('Заполните authorize endpoint и client_id');return}
+
+  const verifier = randString(86);
+  const challenge = await pkceChallengeFromVerifier(verifier);
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('oauth_state', state);
+  sessionStorage.setItem('oauth_token_endpoint', TOKEN);
+  sessionStorage.setItem('oauth_client_id', client_id);
+
+  const url = new URL(AUTH);
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('client_id',client_id);
+  url.searchParams.set('redirect_uri',redirect_uri);
+  url.searchParams.set('scope',scopes);
+  url.searchParams.set('state',state);
+  url.searchParams.set('code_challenge',challenge);
+  url.searchParams.set('code_challenge_method','S256');
+
+  const popup = window.open(url.toString(),'max_oauth','width=500,height=700');
+  if(!popup){setStatus('Попап заблокирован',false);return}
+
+  // poll popup URL for redirect back to our origin with code
+  const interval = setInterval(()=>{
+    try{
+      if(!popup || popup.closed){clearInterval(interval);setStatus('Окно закрыто',false);return}
+      if(popup.location.origin === location.origin){
+        const params = new URLSearchParams(popup.location.search);
+        const code = params.get('code');
+        const stateGot = params.get('state');
+        if(code){
+          popup.close(); clearInterval(interval);
+          document.getElementById('last').innerText = 'code=' + code + '\nstate=' + stateGot;
+          if(stateGot !== state){setStatus('State mismatch — abort', false);return}
+          setStatus('Получен code, пытаюсь обменять...', true);
+          exchangeCode(code, verifier, TOKEN, client_id, redirect_uri);
+        }
+      }
+    }catch(e){/* cross-origin until redirect */}
+  },500);
+});
+
+// redirect flow
+document.getElementById('start-nopop').addEventListener('click', async ()=>{
+  const AUTH = document.getElementById('authorize_endpoint').value.trim();
+  const client_id = document.getElementById('client_id').value.trim();
+  const redirect_uri = document.getElementById('redirect_uri').value || location.origin + location.pathname;
+  const scopes = document.getElementById('scopes').value.trim() || '';
+  const verifier = randString(86);
+  const challenge = await pkceChallengeFromVerifier(verifier);
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('oauth_state', state);
+  const url = new URL(AUTH);
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('client_id',client_id);
+  url.searchParams.set('redirect_uri',redirect_uri);
+  url.searchParams.set('scope',scopes);
+  url.searchParams.set('state',state);
+  url.searchParams.set('code_challenge',challenge);
+  url.searchParams.set('code_challenge_method','S256');
+  // redirect the page (useful for testing on mobile)
+  location.href = url.toString();
+});
+
+// on load — if we have code in URL (redirect flow), handle it
+window.addEventListener('load', ()=>{
+  const p = new URLSearchParams(location.search);
+  const code = p.get('code');
+  const state = p.get('state');
+  if(code){
+    document.getElementById('last').innerText = 'code=' + code + '\nstate=' + state;
+    const expected = sessionStorage.getItem('oauth_state');
+    if(expected !== state){setStatus('State mismatch', false); return}
+    const verifier = sessionStorage.getItem('pkce_verifier');
+    const TOKEN = sessionStorage.getItem('oauth_token_endpoint');
+    const client_id = sessionStorage.getItem('oauth_client_id');
+    const redirect_uri = document.getElementById('redirect_uri').value || location.origin + location.pathname;
+    exchangeCode(code, verifier, TOKEN, client_id, redirect_uri);
+    // clean url
+    history.replaceState({}, document.title, location.pathname);
+  }
+});
+
+async function exchangeCode(code, verifier, tokenEndpoint, client_id, redirect_uri){
+  if(!tokenEndpoint){setStatus('Token endpoint not set — сохранён в sessionStorage при старте popup/redirect', false); return}
+  try{
+    const body = new URLSearchParams();
+    body.set('grant_type','authorization_code');
+    body.set('code',code);
+    body.set('client_id',client_id);
+    body.set('redirect_uri',redirect_uri);
+    body.set('code_verifier',verifier);
+
+    const r = await fetch(tokenEndpoint, {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});
+    const json = await r.json();
+    document.getElementById('token-response').innerText = JSON.stringify(json, null, 2);
+    if(r.ok) setStatus('Token получен', true); else setStatus('Ошибка при получении токена', false);
+  }catch(e){
+    document.getElementById('token-response').innerText = String(e);
+    setStatus('Ошибка (CORS / network) — используйте server-side обмен', false);
+  }
+}
+</script>
+</body>
+</html>
