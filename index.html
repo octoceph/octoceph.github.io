@@ -213,11 +213,24 @@
         <!-- AI -->
       <div class="AiPanel">
         <!-- Здесь должен быть диалог с AI (LLM подключенный по API) который всё анализирует -->
-         <div class="LLM">
+      <div class="chat-wrap" style="margin-top:12px">
+        <div class="chat-panel" role="application" aria-label="ChatGPT-style conversation inside sidebar">
+          <div class="chat-header">
+            <div class="title">ИИ</div>
+            <div class="sub">диалоговый чат</div>
+          </div>
+          <div class="messages" id="messages" tabindex="0">
+            <div class="msg assistant" data-role="assistant">
+              Демонстрация встроенного LLМ. <br> Напишите сообщение.
+            </div>
+          </div>
 
-      <input class="ai-input" type="text" placeholder=" ">
-
-         </div>
+          <div class="input-wrap">
+            <input id="prompt" class="ai-input" type="text" placeholder="Напишите сообщение..." aria-label="Введите сообщение" />
+            <button id="btnSend" class="btn send" title="Отправить">Отправить</button>
+          </div>
+        </div>
+      </div>
        <!-- Конец AI который всё анализирует -->
       </div> 
        <!-- КОНЕЦ AI -->
