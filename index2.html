@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WebCam Grid + Micro-IDE</title>
+
+  <!-- Unified button styles and basic layout -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#94a3b8;
+      --accent:#7c3aed;
+      --glass: rgba(255,255,255,0.02);
+      --btn-bg: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(124,58,237,0.06));
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#081126 0%, #071428 100%);color:#e6eef8;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}
+    header{display:flex;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.03)}
+    h1{font-size:18px;margin:0}
+
+    /* Unified button style */
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:var(--btn-bg);color:#eaf4ff;cursor:pointer;box-shadow:0 6px 18px rgba(2,6,23,0.6);font-weight:600;font-size:14px}
+    .btn.secondary{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03)}
+    .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.03);color:var(--muted)}
+    .btn:active{transform:translateY(1px)}
+
+    main{padding:18px;display:flex;flex-direction:column;gap:18px}
+
+    /* Camera grid */
+    .camera-wrapper{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+    .camera-card{background:linear-gradient(180deg,rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:8px}
+    .camera-card video{width:100%;height:180px;object-fit:cover;border-radius:8px;background:#000}
+    .camera-controls{display:flex;gap:8px;justify-content:space-between;align-items:center}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* Developer panel (the micro IDE area) */
+    .dev-panel{position:fixed;left:12px;right:12px;bottom:12px;height:360px;background:linear-gradient(180deg,#071026 0%, #08112a 100%);border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 36px rgba(2,6,23,0.6)}
+    .dev-header{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid rgba(255,255,255,0.02)}
+    .editor-area{display:grid;grid-template-columns:1fr 420px;gap:10px;align-items:stretch;padding:12px;flex:1;min-height:0}
+    .editor-pane{display:flex;flex-direction:column;gap:8px;background:var(--glass);border-radius:8px;padding:8px;border:1px solid rgba(255,255,255,0.02);min-height:0}
+    .term-pane{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,#020617, #04122a);border-radius:8px;padding:8px;border:1px solid rgba(255,255,255,0.02);min-height:0}
+    .editor-toolbar{display:flex;gap:8px;align-items:center}
+    .cm-s-material{height:100%;}
+    /* CodeMirror size */
+    .CodeMirror{height:100%;border-radius:6px}
+
+    /* Responsive tweaks */
+    @media (max-width:900px){
+      .editor-area{grid-template-columns:1fr;}
+      .term-pane{order:3}
+    }
+
+    footer{padding:12px;border-top:1px solid rgba(255,255,255,0.02);display:flex;gap:8px;align-items:center}
+
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WebCam Grid + Micro-IDE</h1>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button id="addCamBtn" class="btn">➕ Добавить камеру</button>
+      <button id="toggleDev" class="btn secondary">{ } Панель разработчика</button>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="small">Камеры (адаптивная CSS GRID сетка):</div>
+      <div id="cameraGrid" class="camera-wrapper">
+        <!-- Камера-плейсхолдеры будут добавляться сюда -->
+      </div>
+    </section>
+
+    <section>
+      <div class="small">Управление</div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button id="startAll" class="btn ghost">Запустить все</button>
+        <button id="stopAll" class="btn ghost">Остановить все</button>
+        <button id="snapAll" class="btn">Сделать снимок всех</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Developer panel: place that was requested between lines ~409-428 in original file -->
+  <div id="devPanel" class="dev-panel" style="display:none">
+    <div class="dev-header">
+      <div style="display:flex;flex-direction:column">
+        <strong>Микро-IDE</strong>
+        <span class="small">Подсветка синтаксиса, терминал, запуск JS и Python (Pyodide)</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <select id="langSelect" class="btn secondary" style="padding:6px 10px">
+          <option value="javascript">JavaScript</option>
+          <option value="python">Python</option>
+        </select>
+        <button id="runBtn" class="btn">▶ Запустить</button>
+        <button id="clearBtn" class="btn ghost">Очистить терминал</button>
+        <button id="closeDev" class="btn secondary">✖</button>
+      </div>
+    </div>
+
+    <div class="editor-area">
+      <div class="editor-pane">
+        <div class="editor-toolbar small">Редактор <span style="margin-left:8px;color:var(--muted)">Кликните — редактируйте код</span></div>
+        <textarea id="codeEditor">// Пример: console.log('Hello from JS');\n# Или для Python: print('Hello from Python')</textarea>
+      </div>
+
+      <div class="term-pane">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="small">Терминал</div>
+          <div class="small" id="pyStatus">Pyodide: не загружен</div>
+        </div>
+        <div id="terminal" style="flex:1;min-height:0"></div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="small">Интерактив: запуск JS выполняется в изолированном iframe; Python запускается через Pyodide.</div>
+    </footer>
+  </div>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm@4.19.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+  <script>
+    // --- Camera grid logic ---
+    const cameraGrid = document.getElementById('cameraGrid');
+    const addCamBtn = document.getElementById('addCamBtn');
+    const startAll = document.getElementById('startAll');
+    const stopAll = document.getElementById('stopAll');
+    const snapAll = document.getElementById('snapAll');
+
+    // Keep track of camera cards and streams
+    const cameras = [];
+
+    function createCameraCard(index){
+      const card = document.createElement('div');
+      card.className = 'camera-card';
+
+      const title = document.createElement('div');
+      title.className = 'small';
+      title.textContent = `Камера #${index+1}`;
+
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true;
+
+      const controls = document.createElement('div');
+      controls.className = 'camera-controls';
+
+      const left = document.createElement('div');
+      left.style.display = 'flex';
+      left.style.gap = '6px';
+
+      const btnStart = document.createElement('button'); btnStart.className='btn ghost'; btnStart.textContent='▶';
+      const btnStop = document.createElement('button'); btnStop.className='btn ghost'; btnStop.textContent='■';
+      const btnSnap = document.createElement('button'); btnSnap.className='btn secondary'; btnSnap.textContent='📸';
+      const btnRemove = document.createElement('button'); btnRemove.className='btn ghost'; btnRemove.textContent='Удалить';
+
+      left.append(btnStart, btnStop, btnSnap);
+      controls.append(left, btnRemove);
+
+      card.append(title, video, controls);
+
+      let stream = null;
+
+      async function start(){
+        try{
+          stream = await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+          video.srcObject = stream;
+        }catch(e){
+          console.error('Ошибка доступа к камере', e);
+        }
+      }
+      function stop(){
+        if(stream){
+          stream.getTracks().forEach(t=>t.stop());
+          video.srcObject = null;
+          stream = null;
+        }
+      }
+      function snap(){
+        if(!video.srcObject) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video,0,0,canvas.width,canvas.height);
+        const url = canvas.toDataURL('image/png');
+        const a = document.createElement('a'); a.href=url; a.download = `snapshot_cam_${index+1}.png`; a.click();
+      }
+
+      btnStart.addEventListener('click',start);
+      btnStop.addEventListener('click',stop);
+      btnSnap.addEventListener('click',snap);
+      btnRemove.addEventListener('click',()=>{
+        stop();
+        cameraGrid.removeChild(card);
+        const idx = cameras.findIndex(c=>c.card===card);
+        if(idx>=0) cameras.splice(idx,1);
+        updateTitles();
+      });
+
+      cameras.push({card,video,start,stop,snap});
+      cameraGrid.appendChild(card);
+      return {card, start, stop, snap};
+    }
+
+    function updateTitles(){
+      cameras.forEach((c,i)=>{
+        const t = c.card.querySelector('.small');
+        if(t) t.textContent = `Камера #${i+1}`;
+      })
+    }
+
+    addCamBtn.addEventListener('click',()=>{
+      createCameraCard(cameras.length);
+    });
+    startAll.addEventListener('click',()=>cameras.forEach(c=>c.start()));
+    stopAll.addEventListener('click',()=>cameras.forEach(c=>c.stop()));
+    snapAll.addEventListener('click',()=>cameras.forEach(c=>c.snap()));
+
+    // Add an initial camera to show layout
+    createCameraCard(0);
+
+    // --- Micro-IDE logic ---
+    const devPanel = document.getElementById('devPanel');
+    const toggleDev = document.getElementById('toggleDev');
+    const closeDev = document.getElementById('closeDev');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const langSelect = document.getElementById('langSelect');
+    const pyStatus = document.getElementById('pyStatus');
+
+    toggleDev.addEventListener('click',()=>devPanel.style.display='flex');
+    closeDev.addEventListener('click',()=>devPanel.style.display='none');
+
+    // Setup CodeMirror
+    const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'),{
+      lineNumbers:true,matchBrackets:true,mode:'javascript',theme:'default'
+    });
+    editor.setSize('100%','100%');
+
+    langSelect.addEventListener('change',()=>{
+      const lang = langSelect.value;
+      editor.setOption('mode', lang==='javascript' ? 'javascript' : 'python');
+    });
+
+    // Terminal (xterm)
+    const term = new window.Terminal({cols:80,rows:20});
+    term.open(document.getElementById('terminal'));
+    function termWrite(msg){
+      term.writeln(msg.replace(/\n/g,''));
+    }
+    function termClear(){ term.clear(); }
+
+    clearBtn.addEventListener('click',()=>termClear());
+
+    // JS sandboxed iframe runner
+    function runJS(code){
+      // create hidden iframe if not exists
+      let iframe = document.getElementById('sandboxRunner');
+      if(!iframe){
+        iframe = document.createElement('iframe');
+        iframe.id = 'sandboxRunner';
+        iframe.style.display='none';
+        iframe.sandbox = 'allow-scripts';
+        document.body.appendChild(iframe);
+        iframe.srcdoc = `<!doctype html><html><body><script>
+          window.addEventListener('message',async(e)=>{
+            const code = e.data.code;
+            try{
+              console.log = function(){
+                parent.postMessage({type:'log',args:Array.from(arguments)}, '*');
+              }
+              console.error = function(){
+                parent.postMessage({type:'error',args:Array.from(arguments)}, '*');
+              }
+              const result = await (async()=>{return eval(code)})();
+              parent.postMessage({type:'result',result:result}, '*');
+            }catch(err){
+              parent.postMessage({type:'error',args:[err.toString()]}, '*');
+            }
+          },false);
+        <\/script></body></html>`;
+      }
+      window.addEventListener('message',function handler(e){
+        if(e.data && e.data.type){
+          if(e.data.type==='log') term.writeln(e.data.args.map(a=>String(a)).join(' '));
+          if(e.data.type==='error') term.writeln('[Error] '+e.data.args.join(' '));
+          if(e.data.type==='result') term.writeln('[Result] '+String(e.data.result));
+        }
+      });
+      iframe.contentWindow.postMessage({code}, '*');
+    }
+
+    // Pyodide initialization
+    let pyodide = null;
+    (async function(){
+      try{
+        termWrite('Загружаю Pyodide... (может занять несколько секунд)');
+        pyodide = await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'});
+        pyStatus.textContent = 'Pyodide: загружен';
+        termWrite('Pyodide готов.');
+      }catch(e){
+        pyStatus.textContent = 'Pyodide: ошибка загрузки';
+        termWrite('Ошибка загрузки Pyodide: '+e);
+      }
+    })();
+
+    async function runPython(code){
+      if(!pyodide){ termWrite('Pyodide ещё не готов.'); return; }
+      try{
+        // Capture stdout
+        let output = '';
+        pyodide.setStdout({batched: (s)=>{ output += s; term.write(s); }});
+        pyodide.setStderr({batched: (s)=>{ output += s; term.write(s); }});
+        const result = await pyodide.runPythonAsync(code);
+        if(result !== undefined) term.writeln('[Result] '+String(result));
+      }catch(err){
+        term.writeln('[Python Error] '+String(err));
+      } finally{
+        // reset stdout/stderr to defaults
+      }
+    }
+
+    runBtn.addEventListener('click',async ()=>{
+      const code = editor.getValue();
+      const lang = langSelect.value;
+      term.writeln('--- Запуск ('+lang+') ---');
+      if(lang==='javascript'){
+        try{ runJS(code); }catch(e){ term.writeln('[JS Error] '+e); }
+      }else{
+        await runPython(code);
+      }
+    });
+
+    // Small usability: press Ctrl+Enter to run
+    editor.on('keydown',(cm,e)=>{ if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ runBtn.click(); e.preventDefault(); }});
+
+  </script>
+</body>
+</html>
