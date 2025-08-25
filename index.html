@@ -471,7 +471,7 @@
         </div>
 
         <div class="panel" id="ipfsPanel">
-          <h3>IPFS / Ноды</h3>
+          <h3><i class="fas fa-circle-nodes"></i></h3>
           <div class="metric"><div class="muted-small">Онлайн нод</div><div id="ipfsNodes" class="big-number">—</div></div>
           <div class="metric"><div class="muted-small">Среднее время отклика (ms)</div><div id="ipfsLatency" class="big-number">—</div></div>
           <div class="metric"><div class="muted-small">Pinned CIDs</div><div id="pinnedCount" class="big-number">—</div></div>
@@ -549,6 +549,8 @@
               <div class="tiny" id="ipStatus">Статус: —  </div>
             </div>
           </div> -->
+
+
       
         </div>
       </section>
@@ -573,21 +575,287 @@
     </div>
   </main>
 
-  <!-- FOOTER -->
-  <footer class="footer" role="contentinfo">
-    <div id="status" style="letter-spacing: 5px;cursor: pointer;">NETWORK USAGE&nbsp;<i class="fas fa-network-wired"></i> <!-- Тут должна быть статистика по ОБЩЕЙ ЗАГРУЗКЕ СЕТИ из <div id="netLoad" class="big-number"></div> -->
-  </div>
-    <div style="margin-left:auto;letter-spacing: 5px;cursor: pointer;" id="statusText">
-   GPU <i class="fas fa-server"></i><!-- Тут должна быть статистика по GPU -->
- • CPU <i class="fas fa-microchip"></i><!-- Тут должна быть статистика по CPU -->
- • RAM <i class="fas fa-memory"></i><!-- Тут должна быть статистика по использованию оперативной памяти из <div id="memUsage" class="big-number"></div> -->
- • HDD <i class="fas fa-hard-drive"></i><!-- Тут должна быть статистика по HDD -->
- • SSD <i class="fas fa-sd-card"></i><!-- Тут должна быть статистика по SSD -->
- • DISK <i class="fas fa-database"></i><!-- Тут должна быть статистика по всем доступным физичским носителям -->
- 
- • NODES <i class="fas fa-circle-nodes"></i><!-- Тут должна быть статистика из <div id="filecoinDeals" class="big-number"></div>-->
- • LINKS <i class="fas fa-link"></i><!-- Тут должна быть статистика из <div id="ipfsNodes" class="big-number"></div> -->
- • PACKETS <i class="fas fa-envelopes-bulk"></i><!-- Тут должна быть статистика отправленных и или принятых пакетов (Подумай что именно и как тут отображать - я предлогаю добавить стрелочки - вверх это отправленные пакеты, вниз это принятые пакете) --></div>
+<footer class="footer" role="contentinfo">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .content {
+            flex: 1;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        h1 {
+            margin-bottom: 2rem;
+            text-align: center;
+            color: #e94560;
+            text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 1200px;
+        }
+        
+        .metric {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .metric:hover {
+            transform: translateY(-5px);
+        }
+        
+        .metric h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #a9a9b2;
+        }
+        
+        .big-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #4cc9f0;
+            text-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+        }
+        
+        .footer {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            border-top: 1px solid #2d4059;
+            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        #status {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            color: #f5f5f5;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            background: rgba(76, 201, 240, 0.1);
+            margin-right: 1rem;
+        }
+        
+        #statusText {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            transition: background 0.3s ease;
+        }
+        
+        .status-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Анимации для иконок */
+        .fa-network-wired {
+            color: #4cc9f0;
+            animation: pulse 1.5s infinite alternate;
+        }
+        
+        .fa-server {
+            color: #f72585;
+            animation: blink 0.8s infinite alternate;
+        }
+        
+        .fa-microchip {
+            color: #fca311;
+            animation: glow 1.2s infinite alternate;
+        }
+        
+        .fa-memory {
+            color: #7209b7;
+            animation: pulse 1s infinite alternate;
+        }
+        
+        .fa-hard-drive {
+            color: #38b000;
+            animation: spin 4s infinite linear;
+        }
+        
+        .fa-sd-card {
+            color: #90e0ef;
+            animation: blink 0.5s infinite alternate;
+        }
+        
+        .fa-database {
+            color: #ff9e00;
+            animation: pulse 1.3s infinite alternate;
+        }
+        
+        .fa-circle-nodes {
+            color: #e63946;
+            animation: pulse 0.7s infinite alternate;
+        }
+        
+        .fa-link {
+            color: #a8dadc;
+            animation: blink 1.5s infinite alternate;
+        }
+        
+        .fa-envelopes-bulk {
+            color: #ffb4a2;
+            animation: float 2s infinite alternate;
+        }
+        
+        /* Определение анимаций */
+        @keyframes pulse {
+            from { opacity: 0.6; transform: scale(1); }
+            to { opacity: 1; transform: scale(1.1); }
+        }
+        
+        @keyframes blink {
+            from { opacity: 0.3; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 5px currentColor; }
+            to { text-shadow: 0 0 15px currentColor; }
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes float {
+            from { transform: translateY(0); }
+            to { transform: translateY(-3px); }
+        }
+        
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .footer {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            #status {
+                margin-right: 0;
+                margin-bottom: 0.5rem;
+            }
+            
+            #statusText {
+                justify-content: center;
+            }
+        }
+    </style>
+
+
+    <div class="content">
+        <h1 style="
+    font-size: 45px;
+    position: relative;
+    top: -35px;
+    left: -280px;
+    letter-spacing: 30px;
+    color: #ffffff0a;
+">СИСТЕМНЫЙ МОНИТОР</h1>
+        <div class="dashboard">
+            <div class="metric">
+                <h2>Использование памяти</h2>
+                <div id="memUsage" class="big-number">64%</div>
+            </div>
+            <div class="metric">
+                <h2>Сетевая нагрузка</h2>
+                <div id="netLoad" class="big-number">3.2 Gb/s</div>
+            </div>
+            <div class="metric">
+                <h2>Сделки Filecoin</h2>
+                <div id="filecoinDeals" class="big-number">128</div>
+            </div>
+            <div class="metric">
+                <h2>IPFS узлы</h2>
+                <div id="ipfsNodes" class="big-number">42</div>
+            </div>
+        </div>
+    </div>
+    
+    <footer class="footer" role="contentinfo">
+        <div id="status" style="letter-spacing: 5px;cursor: pointer;">
+            NETWORK USAGE&nbsp;<i class="fas fa-network-wired"></i>
+            <span id="netLoadValue" style="margin-left: 5px;">3.2 Gb/s</span>
+        </div>
+        <div style="margin-left:auto;letter-spacing: 5px;cursor: pointer;" id="statusText">
+            <span class="status-item">GPU <i class="fas fa-server"></i></span>
+            <span class="status-item">CPU <i class="fas fa-microchip"></i></span>
+            <span class="status-item">RAM <i class="fas fa-memory"></i></span>
+            <span class="status-item">HDD <i class="fa-solid fa-compact-disc"></i>
+
+<i class="fas fa-compact-disk"></i></span>
+            <span class="status-item">SSD <i class="fas fa-sd-card"></i></span>
+            <span class="status-item">DISK <i class="fas fa-database"></i></span>
+            <span class="status-item">NODES <i class="fas fa-circle-nodes"></i></span>
+            <span class="status-item">LINKS <i class="fas fa-link"></i></span>
+            <span class="status-item">PACKETS <i class="fas fa-envelopes-bulk"></i></span>
+        </div>
+    </footer>
+
+    <script>
+        // Функция для обновления значений (имитация реальных данных)
+        function updateMetrics() {
+            // Обновление использования памяти
+            const memUsage = 50 + Math.floor(Math.random() * 30);
+            document.getElementById('memUsage').textContent = `${memUsage}%`;
+            
+            // Обновление сетевой нагрузки
+            const netLoad = (Math.random() * 5).toFixed(1);
+            document.getElementById('netLoad').textContent = `${netLoad} Gb/s`;
+            document.getElementById('netLoadValue').textContent = `${netLoad} Gb/s`;
+            
+            // Обновление сделок Filecoin
+            const filecoinDeals = 100 + Math.floor(Math.random() * 50);
+            document.getElementById('filecoinDeals').textContent = filecoinDeals;
+            
+            // Обновление IPFS узлов
+            const ipfsNodes = 30 + Math.floor(Math.random() * 25);
+            document.getElementById('ipfsNodes').textContent = ipfsNodes;
+        }
+        
+        // Обновляем значения каждые 3 секунды
+        setInterval(updateMetrics, 3000);
+        
+        // Инициализация при загрузке
+        updateMetrics();
+    </script>
   </footer>
 
 
