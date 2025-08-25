@@ -523,59 +523,8 @@
 
       <!-- Источники: камеры и др. -->
       <section style="display: flex;gap: 12px;flex-wrap: wrap;">
-  <!-- <h3 style="margin: 0px 0px 12px 75px; color:rgb(var(--accent2))"><!--Источники:--><!--<i class="fas fa-plus"></i></h3> -->
-        <div class="sources-row">
-          <div class="camera panel">
-            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">USB / IP / RTSP / MJPEG /</h4>
-            <!-- video элемент заполняется через getUserMedia -->
-            <video id="webcam" autoplay playsinline muted></video>
-            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-              <button id="btnStartCam">Включить камеру</button>
-              <button id="btnStopCam">Выключить</button>
-              <div class="tiny" id="camStatus">Статус: — </div>
-            </div>
-          </div>
-
-         <!-- <div class="camera panel">
-            <h4 style="margin:0 0 8px 0;color:rgb(var(--accent1))">IP-камеры / RTSP / MJPEG</h4>
-            <!-- IP camera: пользователь вводит URL; из-за CORS некоторые камеры не покажутся -->
-            <!-- <video id="webcam" autoplay="" playsinline="" muted=""></video>
-            <input id="ipUrl" placeholder="Вставьте URL (http(s) JPEG/ MJPEG)" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#e6f6ff" />
-            <div style="height:8px"></div>
-            <img class="viewer" id="ipViewer" alt="IP Camera feed (preview)" />
-            <div style="display:flex;gap:8px;margin-top:8px;">
-              <button id="btnLoadIP">Загрузить</button>
-              <button id="btnClearIP">Очистить</button>
-              <div class="tiny" id="ipStatus">Статус: —  </div>
-            </div>
-          </div> -->
-
-
-      
-        </div>
-      </section>
-
-      <!-- Небольшая панель логов/метрик
-      <section style="display:flex;gap:12px;flex-wrap:wrap">
-        <div class="panel" style="flex:1 1 420px">
-          <h3>Лог событий</h3>
-          <div id="eventLog" style="max-height:200px;overflow:auto;font-size:12px;padding-top:6px" aria-live="polite"></div>
-        </div>
-
-       <div class="panel" style="flex:1 1 220px">
-          <h3>Краткая статистика</h3>
-          <div class="muted-small">Последнее обновление</div>
-          <div id="lastUpdated" style="font-weight:700;margin-top:6px">—</div>
-          <div style="height:8px"></div>
-          <div class="muted-small">Средняя загрузка сети</div>
-          <div id="netLoad" class="big-number">—</div>
-        </div>
-      </section> -->
-
-    <div class="grid-container">
-        <div class="grid-item" style="
-    background-color: darkviolet;
-"><i class="fas fa-camera"></i></div>
+      <div class="grid-container">
+        <div class="grid-item" style="background-color: darkviolet;"><i class="fas fa-camera"></i></div>
         <div class="grid-item"><i class="fas fa-camera"></i></div>
         <div class="grid-item"><i class="fas fa-camera"></i></div>
         <div class="grid-item"><i class="fas fa-camera"></i></div>
@@ -632,6 +581,7 @@
         <div class="grid-item"><i class="fas fa-camera"></i></div>
         <div class="grid-item"><i class="fas fa-camera"></i></div>
     </div>
+      </section>
 
 
 
