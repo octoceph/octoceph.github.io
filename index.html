@@ -171,7 +171,7 @@
   .bar > i { display:block; height:100%; background: linear-gradient(90deg, rgba(var(--accent1),0.8), rgba(var(--accent2),0.8)); width:20%; transition: width 600ms ease; }
 
   /* footer content alignment */
-  .footer { display:flex; align-items:center; gap:10px; padding:0 18px; color:var(--muted); font-size:13px; }
+  .footer { display:flex; align-items:center; gap:10px; padding:0 18px; color:var(--muted); }
 
   /* small helpers */
   .muted-small { color: rgba(230,246,255,0.6); font-size:12px; }
@@ -577,20 +577,7 @@
 
 <footer class="footer" role="contentinfo">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+       
         
         .content {
             flex: 1;
@@ -601,12 +588,7 @@
             align-items: center;
         }
         
-        h1 {
-            margin-bottom: 2rem;
-            text-align: center;
-            color: #e94560;
-            text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
-        }
+
         
         .dashboard {
             display: grid;
@@ -784,7 +766,7 @@
         <h1 style="
     font-size: 45px;
     position: relative;
-    top: -35px;
+    top: 30px;
     left: -280px;
     letter-spacing: 30px;
     color: #ffffff0a;
