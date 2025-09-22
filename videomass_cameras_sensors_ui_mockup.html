@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Videomass — Cameras & Sensors (UI Mockup)</title>
+  <style>
+    /* --- Base / Videomass-like dark theme --- */
+    :root{
+      --bg:#0f1620; /* deep slate */
+      --panel:#0f1a24;
+      --muted:#98a0ac;
+      --accent:#3aa0ff; /* blue accent reminiscent of Videomass */
+      --accent-2:#19b38f;
+      --card:#111823;
+      --glass: rgba(255,255,255,0.03);
+      --glass-2: rgba(255,255,255,0.02);
+      --danger:#ff6b6b;
+      --success:#43d17a;
+      --mono: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue';
+      font-family:var(--mono);
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071018 0%, #0b1320 100%);color:#e6eef6}
+    a{color:var(--accent)}
+    .app{display:grid;grid-template-columns:260px 1fr;gap:18px;min-height:100vh;padding:18px}
+
+    /* Sidebar */
+    .sidebar{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:12px;padding:16px;box-shadow:0 6px 30px rgba(2,6,23,0.7);border:1px solid rgba(255,255,255,0.03)}
+    .logo{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+    .logo .mark{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#006ecc);display:flex;align-items:center;justify-content:center;font-weight:700}
+    .logo .brand{font-size:16px;font-weight:600}
+    .nav{display:flex;flex-direction:column;gap:8px}
+    .nav button{background:transparent;border:none;color:var(--muted);text-align:left;padding:10px;border-radius:8px;cursor:pointer}
+    .nav button.active{background:linear-gradient(90deg, rgba(58,160,255,0.08), rgba(25,179,143,0.02));color:var(--accent);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02)}
+
+    /* Main area */
+    .main{display:flex;flex-direction:column;gap:14px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:12px;background:var(--panel);border:1px solid var(--glass);}
+    .search{display:flex;align-items:center;gap:8px}
+    .search input{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:8px;color:inherit}
+    .controls{display:flex;gap:8px}
+    .btn{background:linear-gradient(180deg,var(--accent),#0b7ed6);padding:8px 12px;border-radius:8px;border:none;color:#041328;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--muted)}
+
+    /* Canvas grid */
+    .grid{display:grid;grid-template-columns:360px 1fr 420px;gap:16px}
+    .card{background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--glass-2);box-shadow:0 6px 18px rgba(3,7,14,0.6)}
+    .card h3{margin:0 0 8px 0;font-size:14px}
+    .muted{color:var(--muted);font-size:13px}
+
+    /* Discovery list */
+    .device-list{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;padding-right:6px}
+    .device{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);border:1px solid rgba(255,255,255,0.02)}
+    .device .meta{display:flex;gap:8px;align-items:center}
+    .device .meta .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+    .device small{display:block;color:var(--muted)}
+
+    /* Camera detail panel */
+    .camera-preview{height:200px;background:linear-gradient(180deg,#061018, #071826);border-radius:8px;border:1px dashed rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
+    .form-row{display:flex;gap:8px;align-items:center}
+    .form-row input, .form-row select{flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit}
+
+    /* Timeline */
+    .timeline{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));padding:12px;border-radius:10px}
+    .timeline-rail{height:84px;background:linear-gradient(90deg, rgba(255,255,255,0.02), transparent);border-radius:6px;position:relative;overflow:hidden}
+    .tl-item{position:absolute;top:12px;height:60px;border-radius:6px;padding:6px 8px;color:#021018;font-weight:600}
+    .tl-snap{background:linear-gradient(90deg,#ffd66b,#ffb74d)}
+    .tl-rec{background:linear-gradient(90deg,#7ee7b5,#19b38f)}
+    .tl-event{background:linear-gradient(90deg,#8fb6ff,#3aa0ff)}
+
+    /* right column sections */
+    .section{margin-bottom:12px}
+    .list{display:flex;flex-direction:column;gap:6px}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* footer / micro */
+    .kbd{background:rgba(255,255,255,0.03);padding:6px;border-radius:6px;font-size:12px}
+
+    /* responsive */
+    @media (max-width:1100px){.grid{grid-template-columns:1fr;}.app{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="mark">VM</div>
+        <div class="brand">Videomass — Cameras</div>
+      </div>
+      <div class="nav">
+        <button class="active">Discovery & Adapters</button>
+        <button>Capture Manager</button>
+        <button>AI Plugins</button>
+        <button>Sensors</button>
+        <button>Timeline</button>
+        <button class="ghost">Settings</button>
+      </div>
+      <div style="margin-top:18px" class="small muted">
+        Прототип интерфейса интеграции камер, сенсоров и AI — mockup только для UI/UX.
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="search">
+          <input id="globalsearch" placeholder="Поиск камер, пресетов, моделей..." />
+          <button class="btn ghost" onclick="simulateDiscovery()">Scan LAN</button>
+          <button class="btn" onclick="simulateDiscovery(true)">Deep Scan</button>
+        </div>
+        <div class="controls">
+          <div class="kbd">Status: <strong id="status">idle</strong></div>
+          <button class="btn" onclick="openQuickWizard()">Quick Timelapse</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- LEFT: Discovery + Adapters -->
+        <section class="card">
+          <h3>Network discovery & adapters</h3>
+          <div class="muted">Обнаруженные устройства (mDNS, ONVIF, RTSP, HTTP)</div>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <input id="scanSubnet" placeholder="192.168.1.0/24" style="flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03)" />
+            <button class="btn ghost" onclick="simulateDiscovery()">Scan</button>
+          </div>
+
+          <div style="margin-top:12px" class="device-list" id="deviceList">
+            <!-- devices will be appended by JS -->
+          </div>
+
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button class="btn" onclick="addManualAdapter()">Add RTSP / MJPEG</button>
+            <button class="btn ghost" onclick="discoverLocalCamera()">Detect Local</button>
+          </div>
+        </section>
+
+        <!-- CENTER: Camera detail, Capture manager UI -->
+        <section class="card">
+          <h3 id="cameraTitle">No camera selected</h3>
+          <div class="muted">Карточка камеры — превью, контроль и расписания</div>
+
+          <div style="display:grid;grid-template-columns:1fr 320px;gap:12px;margin-top:12px">
+            <div>
+              <div class="camera-preview" id="preview">
+  <!-- Live camera preview: uses getUserMedia() when available -->
+  <video id="localVideo" autoplay playsinline muted style="width:100%;height:160px;object-fit:cover;border-radius:6px;display:none"></video>
+  <canvas id="localCanvas" style="display:none"></canvas>
+  <div id="previewControls" style="display:flex;gap:8px;align-items:center;margin-top:8px">
+    <button class="btn ghost" onclick="startLocalPreview()">Start Camera</button>
+    <button class="btn ghost" onclick="stopLocalPreview()">Stop</button>
+    <button class="btn" onclick="snapshotFromVideo()">Snapshot</button>
+    <div class="small muted" style="margin-left:auto">Browser camera preview (requires HTTPS / served file)</div>
+  </div>
+</div>
+
+              <div style="margin-top:10px;display:flex;gap:8px">
+                <button class="btn" onclick="snapshotNow()">Snapshot</button>
+                <button class="btn ghost" onclick="recordNow()">Record 30s</button>
+                <button class="btn ghost" onclick="openStreamInPlayer()">Open in player</button>
+              </div>
+
+              <div style="margin-top:12px">
+                <h4 style="margin:0 0 8px 0">Connection</h4>
+                <div class="form-row">
+                  <input id="connUrl" placeholder="rtsp://user:pass@192.168.1.15:554/stream" />
+                  <select id="protocolSelect"><option>RTSP</option><option>HTTP MJPEG</option><option>WebRTC (browser)</option></select>
+                </div>
+                <div style="margin-top:8px;display:flex;gap:8px">
+                  <input id="camName" placeholder="Friendly name" style="flex:1" />
+                  <button class="btn" onclick="connectCamera()">Connect</button>
+                </div>
+              </div>
+
+              <div style="margin-top:12px">
+                <h4 style="margin:0 0 8px 0">Scheduling</h4>
+                <div class="form-row">
+                  <input id="snapInterval" type="number" placeholder="Interval s (e.g. 300)" />
+                  <button class="btn ghost" onclick="scheduleSnapshotUi()">Schedule</button>
+                </div>
+                <div style="margin-top:8px" class="small muted">Записи и снимки управляются через Capture Manager. Для стабильных долгих записей используйте ffmpeg backend.</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card" style="padding:10px;margin-bottom:10px">
+                <h4 style="margin:0 0 8px 0">Capture manager</h4>
+                <div class="small muted">Активные Jobs</div>
+                <div id="jobsList" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
+                <div style="margin-top:10px;display:flex;gap:8px">
+                  <button class="btn" onclick="openJobs()">Manage Jobs</button>
+                  <button class="btn ghost" onclick="exportCaptureConfig()">Export</button>
+                </div>
+              </div>
+
+              <div class="card" style="padding:10px">
+                <h4 style="margin:0 0 8px 0">AI plugin</h4>
+                <div class="small muted">Добавляй модели локально или через API</div>
+                <div style="margin-top:8px" class="form-row">
+                  <select id="aiMode"><option value="local">Local ONNX</option><option value="hf">HuggingFace API</option></select>
+                </div>
+                <div style="margin-top:8px" class="form-row">
+                  <input id="aiPath" placeholder="model.onnx or hf-model-id" />
+                  <button class="btn" onclick="connectModel()">Attach</button>
+                </div>
+                <div style="margin-top:8px" class="small muted">Применяй обработку по расписанию или в постобработке таймлапсов.</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <h4 style="margin:0 0 8px 0">Recent captures</h4>
+            <div id="recentCaptures" class="list small"></div>
+          </div>
+        </section>
+
+        <!-- RIGHT: Sensors + Timeline -->
+        <aside>
+          <div class="card section">
+            <h3>Sensors</h3>
+            <div class="muted">MQTT / Serial / BLE — события с таймштампами</div>
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <input id="mqttBroker" placeholder="mqtt.local:1883" />
+              <button class="btn ghost" onclick="startMQTT()">Connect</button>
+            </div>
+            <div style="margin-top:8px" id="sensorsList" class="list small"></div>
+          </div>
+
+          <div class="card section">
+            <h3>Timeline / Correlation</h3>
+            <div class="muted">Визуализируй снимки / записи / события и скоррелируй их по времени.</div>
+            <div style="margin-top:10px" class="timeline" id="timelineCard">
+              <div class="timeline-rail" id="timelineRail">
+                <!-- items inserted here -->
+              </div>
+              <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+                <div class="small muted">Window: </div>
+                <select id="timeWindow"><option value="3600">1h</option><option value="86400">24h</option><option value="604800">7d</option></select>
+                <button class="btn ghost" onclick="renderTimeline()">Refresh</button>
+                <button class="btn" onclick="exportTimeline()">Export CSV</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card section">
+            <h3>Quick actions</h3>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn" onclick="generateTimelapse()">Generate Timelapse (selected)</button>
+              <button class="btn ghost" onclick="runAiOnSelection()">Run AI on selection</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="muted">Build prototype • UI-only mockup • Not connected to backend</div>
+        <div style="flex:1"></div>
+        <div class="small muted">v0.1 — UI mock</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /* --- Mock data + behaviour to make the prototype interactive --- */
+    const devices = [];
+    const jobs = [];
+    const sensors = [];
+    const captures = [];
+
+    function simulateDiscovery(deep=false){
+      document.getElementById('status').innerText = 'scanning...';
+      // quick visual mock scan -> append fake devices
+      setTimeout(()=>{
+        const baseIP = '192.168.1.' + Math.floor(Math.random()*90 + 10);
+        const dev = {
+          id: 'dev_'+Math.random().toString(36).substr(2,6),
+          name: 'Cam '+Math.floor(Math.random()*900+100),
+          host: baseIP,
+          port: deep?8554:554,
+          proto: Math.random()>.6?'RTSP':'MJPEG',
+          onvif: Math.random()>.7
+        };
+        devices.push(dev);
+        renderDevices();
+        document.getElementById('status').innerText = 'idle';
+      }, deep?1200:600);
+    }
+
+    function renderDevices(){
+      const el = document.getElementById('deviceList'); el.innerHTML='';
+      devices.forEach(d=>{
+        const div = document.createElement('div'); div.className='device';
+        div.innerHTML = `<div class='meta'><div style=\"width:36px;height:36px;border-radius:6px;background:linear-gradient(90deg, rgba(58,160,255,0.12), rgba(25,179,143,0.06));display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);\">${d.name.slice(0,2)}</div><div><strong>${d.name}</strong><small>${d.host}:${d.port} • ${d.proto}${d.onvif? ' • ONVIF':''}</small></div></div><div style=\"display:flex;gap:8px\"><button class=\"btn ghost\" onclick=\"selectDevice('${d.id}')\">Open</button><button class=\"btn\" onclick=\"addAdapterFromDiscovery('${d.id}')\">Add</button></div>`;
+        el.appendChild(div);
+      })
+    }
+
+    function selectDevice(id){
+      const d = devices.find(x=>x.id===id); if(!d) return;
+      document.getElementById('cameraTitle').innerText = d.name + ' • ' + d.host;
+      document.getElementById('connUrl').value = (d.proto==='RTSP' ? `rtsp://${d.host}:${d.port}/live` : `http://${d.host}:${d.port}/mjpeg`);
+      document.getElementById('camName').value = d.name;
+      // simulate preview
+      document.getElementById('preview').innerHTML = `<div style='text-align:center'><div style='font-size:13px;color:var(--muted)'>Live preview simulated</div><img src='https://picsum.photos/seed/${d.name}/600/340' style='width:100%;height:160px;object-fit:cover;border-radius:6px;margin-top:8px' alt='preview' /></div>`;
+    }
+
+    function addAdapterFromDiscovery(id){
+      const d = devices.find(x=>x.id===id); if(!d) return; const name = d.name; const url = (d.proto==='RTSP'? `rtsp://${d.host}:${d.port}/live` : `http://${d.host}:${d.port}/mjpeg`);
+      addAdapter(name,url,d.proto);
+    }
+
+    function addAdapter(name='manual', url='rtsp://', proto='RTSP'){
+      const adapter = {id:'ad_'+Math.random().toString(36).substr(2,6), name, url, proto, connected:false};
+      devices.push(adapter); renderDevices();
+      alert('Adapter added: '+name+'\n'+url);
+    }
+
+    function addManualAdapter(){
+      const url = prompt('RTSP / MJPEG URL (example rtsp://user:pass@192.168.1.10:554/stream)');
+      if(!url) return; addAdapter('manual', url, url.startsWith('rtsp')? 'RTSP':'MJPEG');
+    }
+
+    async function discoverLocalCamera(){
+  // Try to obtain camera stream and show live preview via getUserMedia
+  try{
+    await startLocalPreview();
+    const id = 'local_cam_'+Math.random().toString(36).slice(2,6);
+    const name = 'Local Camera';
+    devices.push({id, name, host:'local', port:0, proto:'WebRTC', onvif:false});
+    renderDevices();
+    alert('Local camera detected and preview started.');
+  }catch(e){
+    // startLocalPreview already alerts on error
+  }
+}
+
+async function startLocalPreview(){
+  const video = document.getElementById('localVideo');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    alert('getUserMedia() not supported in this browser. Use a modern browser (Chrome/Firefox/Edge) served over HTTPS.');
+    throw new Error('getUserMedia unsupported');
+  }
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('preview').querySelector('div.small')?.style?.setProperty('display','none');
+    document.getElementById('status').innerText = 'camera';
+    return stream;
+  }catch(err){
+    alert('Не удалось получить доступ к камере: '+ (err.message || err));
+    throw err;
+  }
+}
+
+function stopLocalPreview(){
+  const video = document.getElementById('localVideo');
+  if(video && video.srcObject){
+    const tracks = video.srcObject.getTracks();
+    tracks.forEach(t=>{ try{ t.stop(); }catch(e){} });
+    video.srcObject = null;
+  }
+  if(video) video.style.display='none';
+  document.getElementById('status').innerText = 'idle';
+}
+
+function snapshotFromVideo(){
+  const video = document.getElementById('localVideo');
+  const canvas = document.getElementById('localCanvas');
+  if(!video || video.style.display==='none' || !video.srcObject){
+    alert('Камера не запущена. Нажмите "Start Camera" чтобы включить превью.');
+    return null;
+  }
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 360;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  // add to captures list with dataUrl so UI can display or export later
+  const ts = Date.now();
+  const cam = document.getElementById('camName').value || 'Local Camera';
+  captures.unshift({id:'s_'+ts, cam, type:'snapshot', ts, dataUrl});
+  renderRecent();
+  addTimelineItem('snap', ts);
+  return dataUrl;
+}); renderDevices();
+      alert('Local camera detected (simulated). To access real camera use getUserMedia in a real implementation.');
+    }
+
+    // Connect camera UI
+    function connectCamera(){
+      const url = document.getElementById('connUrl').value.trim();
+      const name = document.getElementById('camName').value.trim() || 'Camera';
+      if(!url){alert('Введите URL');return}
+      captures.unshift({id:'cap_'+Math.random().toString(36).slice(2,6), cam:name, url, ts:Date.now()});
+      document.getElementById('recentCaptures').innerHTML = captures.slice(0,6).map(c=>`<div>${new Date(c.ts).toLocaleString()} • ${c.cam} • <small class='muted'>${c.url}</small></div>`).join('');
+      document.getElementById('cameraTitle').innerText = name + ' • connected';
+      document.getElementById('status').innerText = 'connected';
+    }
+
+    // Snapshot / recording / jobs
+    function snapshotNow(){
+  const cam = document.getElementById('camName').value || 'camera';
+  const ts = Date.now();
+  // prefer live video snapshot if available
+  const video = document.getElementById('localVideo');
+  if (video && video.style.display!=='none' && video.srcObject){
+    const imgData = snapshotFromVideo();
+    if(imgData){
+      captures.unshift({id:'s_'+ts, cam, type:'snapshot', ts, dataUrl: imgData});
+      renderRecent(); addTimelineItem('snap', ts);
+      alert('Snapshot taken from camera for '+cam+' at '+new Date(ts).toLocaleString());
+      return;
+    }
+  }
+  // fallback simulated
+  captures.unshift({id:'s_'+ts, cam, type:'snapshot', ts}); renderRecent(); addTimelineItem('snap', ts);
+  alert('Snapshot taken (simulated) for '+cam+' at '+new Date(ts).toLocaleString());
+}); renderRecent(); addTimelineItem('snap', ts);
+      alert('Snapshot taken (simulated) for '+cam+' at '+new Date(ts).toLocaleString());
+    }
+    function recordNow(){
+      const cam = document.getElementById('camName').value || 'camera';
+      const ts = Date.now(); const dur=30; captures.unshift({id:'r_'+ts, cam, type:'rec', ts, dur}); renderRecent(); addTimelineItem('rec', ts, dur);
+      alert('Recording started (simulated) for '+cam+' for 30s');
+    }
+
+    function scheduleSnapshotUi(){
+      const interval = parseInt(document.getElementById('snapInterval').value||0);
+      if(!interval || interval<5){alert('Введите корректный интервал (сек) >=5');return}
+      const cam = document.getElementById('camName').value || 'camera';
+      const id = 'job_'+Math.random().toString(36).slice(2,6);
+      jobs.push({id, cam, type:'snapshot', interval}); renderJobs();
+      alert('Scheduled snapshot every '+interval+'s for '+cam);
+    }
+
+    function renderJobs(){
+      const el = document.getElementById('jobsList'); el.innerHTML = '';
+      jobs.forEach(j=>{ const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.padding='6px'; row.style.borderRadius='6px'; row.style.background='rgba(255,255,255,0.01)'; row.innerHTML = `<div><strong>${j.cam}</strong><div class='small muted'>${j.type} • every ${j.interval}s</div></div><div><button class='btn ghost' onclick="cancelJob('${j.id}')">Stop</button></div>`; el.appendChild(row)});
+    }
+    function cancelJob(id){ const idx=jobs.findIndex(j=>j.id===id); if(idx>-1){jobs.splice(idx,1);renderJobs();alert('Job stopped')}}
+
+    function renderRecent(){ document.getElementById('recentCaptures').innerHTML = captures.slice(0,8).map(c=>`<div>${new Date(c.ts).toLocaleString()} • ${c.cam} • <small class='muted'>${c.type||'capture'}</small></div>`).join(''); }
+
+    function addTimelineItem(kind, ts, dur=0){
+      const rail = document.getElementById('timelineRail');
+      const width = rail.clientWidth || 300;
+      const windowSec = parseInt(document.getElementById('timeWindow').value || '86400');
+      const now = Date.now();
+      const rel = 1 - Math.min(windowSec*1000, now - ts)/ (windowSec*1000);
+      const left = Math.max(6, Math.floor(rel*(width-60)));
+      const item = document.createElement('div'); item.className='tl-item '+(kind==='snap'?'tl-snap': (kind==='rec'?'tl-rec':'tl-event'));
+      item.style.left = left+'px'; item.style.width = dur? Math.max(40, Math.min(140, dur*2))+'px' : '32px'; item.innerText = kind.toUpperCase(); item.title = new Date(ts).toLocaleString(); rail.appendChild(item);
+    }
+
+    function renderTimeline(){ const rail = document.getElementById('timelineRail'); rail.innerHTML=''; // rebuild from captures + sensors
+      const entries = captures.concat(sensors).slice(0,50);
+      entries.forEach(e=>{ if(e.type==='snapshot') addTimelineItem('snap', e.ts); else if(e.type==='rec') addTimelineItem('rec', e.ts, e.dur||30); else if(e.event) addTimelineItem('event', e.ts); });
+    }
+
+    // AI model connect (mock)
+    function connectModel(){ const mode = document.getElementById('aiMode').value; const path = document.getElementById('aiPath').value.trim(); if(!path){alert('Укажи путь к модели или id на HuggingFace');return} alert('Model attached: '+path+' ('+mode+')'); }
+    function runAiOnSelection(){ alert('AI run simulated: processing latest 5 captures.'); }
+
+    // Sensors
+    function startMQTT(){ const broker = document.getElementById('mqttBroker').value||'localhost:1883'; sensors.unshift({id:'s_'+Date.now(), source:'mqtt', name:'sensor-'+Math.floor(Math.random()*99), event:'motion', ts:Date.now()}); renderSensors(); addTimelineItem('event', Date.now()); alert('MQTT connected (simulated) to '+broker); }
+    function renderSensors(){ document.getElementById('sensorsList').innerHTML = sensors.slice(0,20).map(s=>`<div><strong>${s.name}</strong><div class='small muted'>${s.event} • ${new Date(s.ts).toLocaleString()}</div></div>`).join(''); }
+
+    // Timeline export
+    function exportTimeline(){ const rows = captures.map(c=>`${c.id},${c.cam},${c.type||'capture'},${new Date(c.ts).toISOString()}`); const csv = 'id,cam,type,timestamp\n'+rows.join('\n'); const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='timeline.csv'; a.click(); }
+
+    function generateTimelapse(){ alert('Timelapse generation simulated — would call backend ffmpeg to stitch images.'); }
+    function openStreamInPlayer(){ alert('Would open stream in external player (ffplay) or internal viewer.'); }
+    function openJobs(){ alert('Open Jobs Manager (mock).'); }
+    function exportCaptureConfig(){ alert('Config exported (mock).'); }
+    function runQuickDemo(){ simulateDiscovery(); discoverLocalCamera(); }
+    function openQuickWizard(){ runQuickDemo(); alert('Quick wizard: scanned devices and created a sample job.'); }
+
+    // initial seed
+    simulateDiscovery(); simulateDiscovery(true);
+  </script>
+</body>
+</html>
