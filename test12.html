@@ -307,7 +307,7 @@ function setupCameraControls(cam){ const card=document.getElementById(cam.id); c
   startIntervalBtn.addEventListener('click', ()=>{ if(cam.intervalId) return notify('Интервальная съёмка уже запущена','info'); cam.intervalId = setInterval(()=> snapshotAndAnalyze(cam,true), cam.intervalSec*1000); notify('Интервальная съёмка запущена','success'); });
   stopIntervalBtn.addEventListener('click', ()=>{ if(cam.intervalId){ clearInterval(cam.intervalId); cam.intervalId=null; notify('Интервальная съёмка остановлена','info'); } });
   saveLastBtn.addEventListener('click', async ()=>{ if(!cam.lastSnapshot) return notify('Нет последнего кадра','error'); const gid = ensureDefaultGallery(); const cid = await saveFrameWithMetaToIpfs(cam.lastSnapshot, gid); if(cid) cam.lastSnapshot.cid=cid; });
-  segmentBtn.addEventListener('click', async ()=>{ if(!cam.lastSnapshot) return notify('Сделайте снимок сначала','error'); try{ const contourInfo = await detectGreenContourFromBlob(cam.lastSnapshot.blob); openContourModal(contourInfo); notify('Контуры рассчитаны — откройте модал','success'); }catch(err){ notify('Ошибка сегментации: '+err.message,'error'); log('segmentation err',err); } });
+  segmentBtn.addEventListener('click', async ()=>{ if(!cam.lastSnapshot) return notify('Сделайте снимок сначала','error'); try{ const contourInfo = await detectGreenContourFromBlob(cam.lastSnapshot.blob); openContourModal(contourInfo); notify('Контуры рассчитаны','success'); }catch(err){ notify('Ошибка сегментации: '+err.message,'error'); log('segmentation err',err); } });
   delBtn.addEventListener('click', ()=> removeCamera(cam)); }
 
 function updateCamCount(){ document.getElementById('camCount').textContent = state.cameras.length; }
